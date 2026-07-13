@@ -3,10 +3,9 @@
 Simple crossover + hysteresis + dew-point gate. The 2-node RC model and the
 matplotlib PNG live in a separate V2 plan and are intentionally absent here.
 
-Note: this module intentionally does NOT import `.zones` at module top level.
-`zones.py` imports `ZoneReading` from this module, so a top-level import of
-`select_reference` here would create a circular import. `run_decision_engine`
-imports `select_reference` lazily, inside the function body, instead.
+The indoor reference is simply the cross-vent zone reading (the hottest room
+among its sensors, see `zones.aggregate_zone`); there is no separate AC-aware
+reference selection.
 """
 from __future__ import annotations
 
@@ -37,7 +36,7 @@ class HourForecast:
 
 @dataclass
 class ZoneReading:
-    """Aggregated indoor reading for a zone (mean of its sensors)."""
+    """Aggregated indoor reading for a zone (max temp, mean humidity)."""
 
     name: str
     temp: float | None
@@ -78,9 +77,7 @@ class Snapshot:
     outdoor_temp: float | None
     outdoor_dew_point: float | None
     indoor_ref_temp: float | None
-    reference_zone: str
     humidity_gate_blocking: bool
-    ac_on: bool
     zones: dict[str, ZoneResult]
     forecast_series: list[dict]
     degrees_saved: float | None
@@ -98,7 +95,6 @@ def decide_verdict(
     indoor_dew_point: float | None,
     outdoor_temp: float | None,
     outdoor_dew_point: float | None,
-    ac_on: bool,
     cfg: EngineConfig,
 ) -> tuple[str, bool]:
     """Return (verdict, humidity_gate_blocking) for one moment in time.
@@ -111,8 +107,7 @@ def decide_verdict(
     low dew point, which wrongly blocked beneficial cool-but-humid night air.
 
     Rules (in order):
-      - indoor_temp unknown            -> (keep_closed, False)
-      - AC running                     -> never OPEN (close/keep_closed only)
+      - indoor_temp unknown -> (keep_closed, False)
       - open  if outdoor < indoor - open_margin and indoor > comfort_target
               and gate not blocking
       - close if outdoor > indoor - close_margin or indoor <= min_indoor
@@ -133,8 +128,7 @@ def decide_verdict(
         return (VERDICT_KEEP_CLOSED, gate_blocking)
 
     if (
-        not ac_on
-        and outdoor_temp < indoor_temp - cfg.open_margin
+        outdoor_temp < indoor_temp - cfg.open_margin
         and indoor_temp > cfg.comfort_target
         and not gate_blocking
     ):
@@ -163,7 +157,7 @@ def find_open_close_window(
 ) -> tuple[datetime | None, datetime | None]:
     """Scan an ascending hourly forecast for the next open then close times.
 
-    next_open  = first hour whose OPEN condition holds (AC not considered here).
+    next_open  = first hour whose OPEN condition holds.
     next_close = first hour AFTER next_open whose CLOSE condition holds
                  (outdoor > indoor - close_margin or indoor <= min_indoor).
     Returns (None, None) parts that are never reached.
@@ -177,7 +171,7 @@ def find_open_close_window(
         outdoor_dp = _forecast_dew_point(f)
         if next_open is None:
             verdict, _gate = decide_verdict(
-                indoor_temp, indoor_dp, f.temp, outdoor_dp, False, cfg
+                indoor_temp, indoor_dp, f.temp, outdoor_dp, cfg
             )
             if verdict == VERDICT_OPEN:
                 next_open = f.time
@@ -212,28 +206,20 @@ def run_decision_engine(
     now: datetime,
     forecasts: list[HourForecast],
     crossvent: ZoneReading,
-    bedrooms: ZoneReading,
     bureau: ZoneReading,
-    ac_on: bool,
     door_open: bool,
     cfg: EngineConfig,
 ) -> Snapshot:
     """Compute the full Snapshot for the current moment plus the forecast window.
 
-    - Reference indoor reading is chosen by zones.select_reference (bedrooms
-      when the AC is running, else the cross-vent core). Imported lazily here
-      to avoid a circular import: zones.py imports ZoneReading from this
-      module at its top level, so engine.py cannot import zones at its own
-      top level.
+    - The indoor reference IS the cross-vent zone reading (its temperature is
+      already the hottest room among its sensors, see zones.aggregate_zone).
     - Global verdict comes from the reference reading vs forecasts[0]. When the
-      current verdict is keep_closed, the AC is off, and a future open hour
-      exists, the verdict is promoted to open_soon.
-    - Per-zone results are produced for the cross-vent core (AC-aware) and the
-      bureau (separate zone, AC never applies).
+      current verdict is keep_closed and a future open hour exists, the
+      verdict is promoted to open_soon.
+    - Per-zone results are produced for the cross-vent core and the bureau.
     """
-    from .zones import select_reference
-
-    reference, reference_zone = select_reference(crossvent, bedrooms, ac_on)
+    reference = crossvent
     ref_dp = reading_dew_point(reference)
 
     current = forecasts[0] if forecasts else None
@@ -241,22 +227,22 @@ def run_decision_engine(
     outdoor_dp = _forecast_dew_point(current) if current is not None else None
 
     base_verdict, gate_blocking = decide_verdict(
-        reference.temp, ref_dp, outdoor_temp, outdoor_dp, ac_on, cfg
+        reference.temp, ref_dp, outdoor_temp, outdoor_dp, cfg
     )
     next_open, next_close = find_open_close_window(now, forecasts, reference, cfg)
 
     verdict = base_verdict
-    if base_verdict == VERDICT_KEEP_CLOSED and not ac_on and next_open is not None:
+    if base_verdict == VERDICT_KEEP_CLOSED and next_open is not None:
         verdict = VERDICT_OPEN_SOON
 
     # Per-zone results.
     cv_dp = reading_dew_point(crossvent)
     cv_verdict, cv_gate = decide_verdict(
-        crossvent.temp, cv_dp, outdoor_temp, outdoor_dp, ac_on, cfg
+        crossvent.temp, cv_dp, outdoor_temp, outdoor_dp, cfg
     )
     bu_dp = reading_dew_point(bureau)
     bu_verdict, bu_gate = decide_verdict(
-        bureau.temp, bu_dp, outdoor_temp, outdoor_dp, False, cfg
+        bureau.temp, bu_dp, outdoor_temp, outdoor_dp, cfg
     )
     zones: dict[str, ZoneResult] = {
         "crossvent": ZoneResult(
@@ -290,9 +276,7 @@ def run_decision_engine(
         outdoor_temp=outdoor_temp,
         outdoor_dew_point=outdoor_dp,
         indoor_ref_temp=reference.temp,
-        reference_zone=reference_zone,
         humidity_gate_blocking=gate_blocking,
-        ac_on=ac_on,
         zones=zones,
         forecast_series=forecast_series,
         degrees_saved=degrees_saved,
