@@ -28,9 +28,7 @@ def test_verdict_sensor(fake_coordinator, fake_entry):
     assert attrs["reason"] == "Indoor 27.5C above comfort but outdoor not cool enough yet"
     assert attrs["outdoor_temp"] == 30.0
     assert attrs["indoor_ref_temp"] == 27.5
-    assert attrs["reference_zone"] == "crossvent"
     assert attrs["humidity_gate_blocking"] is False
-    assert attrs["ac_on"] is False
 
 
 def test_next_open_sensor(fake_coordinator, fake_entry):

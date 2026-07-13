@@ -10,9 +10,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openwindows import update_listener
 from custom_components.openwindows.const import (
-    CONF_AC_POWER,
-    CONF_BEDROOM_HUM,
-    CONF_BEDROOM_TEMP,
     CONF_BUREAU_HUM,
     CONF_BUREAU_TEMP,
     CONF_CROSSVENT_HUM,
@@ -39,11 +36,8 @@ def _make_entry(hass, options=None):
             CONF_SOLAR_WEATHER: "weather.maison",
             CONF_CROSSVENT_TEMP: ["sensor.salon_temp"],
             CONF_CROSSVENT_HUM: ["sensor.salon_hum"],
-            CONF_BEDROOM_TEMP: ["sensor.chambre_temp"],
-            CONF_BEDROOM_HUM: ["sensor.chambre_hum"],
             CONF_BUREAU_TEMP: "sensor.bureau_temp",
             CONF_BUREAU_HUM: "sensor.bureau_hum",
-            CONF_AC_POWER: "sensor.ac_power",
             CONF_DOOR: "binary_sensor.door",
             CONF_ORIENTATION: "S",
         },
@@ -103,11 +97,8 @@ def _set_sensor_states(hass) -> None:
     """Populate every sensor the coordinator reads so the engine can run."""
     hass.states.async_set("sensor.salon_temp", "30.0")
     hass.states.async_set("sensor.salon_hum", "40")
-    hass.states.async_set("sensor.chambre_temp", "29.0")
-    hass.states.async_set("sensor.chambre_hum", "42")
     hass.states.async_set("sensor.bureau_temp", "28.0")
     hass.states.async_set("sensor.bureau_hum", "45")
-    hass.states.async_set("sensor.ac_power", "5")
     hass.states.async_set("binary_sensor.door", "off")
 
 
@@ -126,10 +117,10 @@ async def test_async_setup_entry_sets_up_coordinator_and_platforms(hass) -> None
     assert isinstance(coordinator, OpenWindowsCoordinator)
     assert coordinator.last_update_success is True
 
-    # Both platforms (sensor: 8 entities, binary_sensor: 2 entities) forwarded.
+    # Both platforms (sensor: 8 entities, binary_sensor: 1 entity) forwarded.
     registry = er.async_get(hass)
     entries = er.async_entries_for_config_entry(registry, entry.entry_id)
-    assert len(entries) == 10
+    assert len(entries) == 9
 
     # Blueprints copied into the HA config dir.
     dest = Path(hass.config.path("blueprints", "automation", "openwindows"))

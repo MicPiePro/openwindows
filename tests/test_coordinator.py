@@ -7,9 +7,6 @@ from unittest.mock import AsyncMock, patch
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openwindows.const import (
-    CONF_AC_POWER,
-    CONF_BEDROOM_HUM,
-    CONF_BEDROOM_TEMP,
     CONF_BUREAU_HUM,
     CONF_BUREAU_TEMP,
     CONF_CROSSVENT_HUM,
@@ -34,11 +31,8 @@ def _make_entry(hass, options=None):
             CONF_SOLAR_WEATHER: "weather.maison",
             CONF_CROSSVENT_TEMP: ["sensor.salon_temp"],
             CONF_CROSSVENT_HUM: ["sensor.salon_hum"],
-            CONF_BEDROOM_TEMP: ["sensor.chambre_temp"],
-            CONF_BEDROOM_HUM: ["sensor.chambre_hum"],
             CONF_BUREAU_TEMP: "sensor.bureau_temp",
             CONF_BUREAU_HUM: "sensor.bureau_hum",
-            CONF_AC_POWER: "sensor.ac_power",
             CONF_DOOR: "binary_sensor.door",
             CONF_ORIENTATION: "S",
         },
@@ -104,14 +98,14 @@ async def test_state_float_handles_unavailable(hass):
     assert coordinator._state_float("sensor.a") == 21.5
 
 
-async def test_read_zone_mean(hass):
+async def test_read_zone_max(hass):
     entry = _make_entry(hass)
     coordinator = OpenWindowsCoordinator(hass, entry)
     hass.states.async_set("sensor.a", "20.0")
     hass.states.async_set("sensor.b", "30.0")
     reading = coordinator._read_zone("crossvent", ["sensor.a", "sensor.b"], [])
     assert reading.name == "crossvent"
-    assert reading.temp == 25.0
+    assert reading.temp == 30.0
     assert reading.humidity is None
 
 
@@ -165,14 +159,11 @@ def _patch_forecast_service(hass, response):
 
 async def test_update_data_verdict_open(hass):
     entry = _make_entry(hass)
-    # Hot indoors, cool outdoors, AC off, door closed -> engine should say OPEN.
+    # Hot indoors, cool outdoors, door closed -> engine should say OPEN.
     hass.states.async_set("sensor.salon_temp", "30.0")
     hass.states.async_set("sensor.salon_hum", "40")
-    hass.states.async_set("sensor.chambre_temp", "29.0")
-    hass.states.async_set("sensor.chambre_hum", "42")
     hass.states.async_set("sensor.bureau_temp", "28.0")
     hass.states.async_set("sensor.bureau_hum", "45")
-    hass.states.async_set("sensor.ac_power", "5")
     hass.states.async_set("binary_sensor.door", "off")
 
     coordinator = OpenWindowsCoordinator(hass, entry)
@@ -181,28 +172,6 @@ async def test_update_data_verdict_open(hass):
 
     assert coordinator.last_update_success is True
     assert coordinator.data.verdict == VERDICT_OPEN
-    assert coordinator.data.ac_on is False
-
-
-async def test_update_data_ac_on_never_opens(hass):
-    entry = _make_entry(hass)
-    hass.states.async_set("sensor.salon_temp", "30.0")
-    hass.states.async_set("sensor.salon_hum", "40")
-    hass.states.async_set("sensor.chambre_temp", "30.0")
-    hass.states.async_set("sensor.chambre_hum", "40")
-    hass.states.async_set("sensor.bureau_temp", "28.0")
-    hass.states.async_set("sensor.bureau_hum", "45")
-    # AC power above the 100 W threshold -> ac_on True.
-    hass.states.async_set("sensor.ac_power", "500")
-    hass.states.async_set("binary_sensor.door", "off")
-
-    coordinator = OpenWindowsCoordinator(hass, entry)
-    with _patch_forecast_service(hass, _forecast_response()):
-        await coordinator.async_refresh()
-
-    assert coordinator.last_update_success is True
-    assert coordinator.data.ac_on is True
-    assert coordinator.data.verdict != VERDICT_OPEN
 
 
 async def test_update_data_raises_when_no_forecast(hass):

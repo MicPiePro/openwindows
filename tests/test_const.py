@@ -15,11 +15,8 @@ def test_data_keys():
     assert const.CONF_SOLAR_WEATHER == "solar_weather"
     assert const.CONF_CROSSVENT_TEMP == "crossvent_temp_sensors"
     assert const.CONF_CROSSVENT_HUM == "crossvent_humidity_sensors"
-    assert const.CONF_BEDROOM_TEMP == "bedroom_temp_sensors"
-    assert const.CONF_BEDROOM_HUM == "bedroom_humidity_sensors"
     assert const.CONF_BUREAU_TEMP == "bureau_temp_sensor"
     assert const.CONF_BUREAU_HUM == "bureau_humidity_sensor"
-    assert const.CONF_AC_POWER == "ac_power_sensor"
     assert const.CONF_DOOR == "door_sensor"
     assert const.CONF_ORIENTATION == "orientation"
 
@@ -37,8 +34,6 @@ def test_option_keys_and_defaults():
     assert const.DEFAULT_HUMIDITY_GATE is True
     assert const.CONF_MAX_DEWPOINT == "max_outdoor_dewpoint"
     assert const.DEFAULT_MAX_DEWPOINT == 18.0
-    assert const.CONF_AC_THRESHOLD == "ac_power_threshold"
-    assert const.DEFAULT_AC_THRESHOLD == 100.0
     assert const.CONF_WALL_MASS == "wall_mass"
     assert const.DEFAULT_WALL_MASS == "medium"
     assert const.CONF_VENTILATION == "ventilation"

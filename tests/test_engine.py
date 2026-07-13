@@ -19,6 +19,7 @@ from custom_components.openwindows.engine import (
     run_decision_engine,
 )
 from custom_components.openwindows.psychro import dew_point
+from custom_components.openwindows.zones import aggregate_zone
 
 
 # --------------------------------------------------------------------------
@@ -89,7 +90,7 @@ CFG = EngineConfig()
 def test_decide_open_when_outdoor_cool_and_indoor_hot_and_dry():
     # indoor 30C/50% (dew 18.44), outdoor 22C/40% (dew 7.77): clearly open.
     verdict, gate = decide_verdict(
-        30.0, dew_point(30.0, 50.0), 22.0, dew_point(22.0, 40.0), False, CFG
+        30.0, dew_point(30.0, 50.0), 22.0, dew_point(22.0, 40.0), CFG
     )
     assert verdict == VERDICT_OPEN
     assert gate is False
@@ -98,7 +99,7 @@ def test_decide_open_when_outdoor_cool_and_indoor_hot_and_dry():
 def test_decide_close_when_outdoor_warmer_than_indoor():
     # outdoor 31 > indoor 29 - 0.3 -> close. Dry outdoor keeps gate False.
     verdict, gate = decide_verdict(
-        29.0, dew_point(29.0, 50.0), 31.0, dew_point(31.0, 35.0), False, CFG
+        29.0, dew_point(29.0, 50.0), 31.0, dew_point(31.0, 35.0), CFG
     )
     assert verdict == VERDICT_CLOSE
     assert gate is False
@@ -108,7 +109,7 @@ def test_humidity_gate_blocks_open_when_outdoor_muggy():
     # Same temps as the open case but outdoor 22C/95% (dew 21.16) exceeds the
     # 18C absolute dew-point cap -> gate blocks; verdict falls to keep_closed.
     verdict, gate = decide_verdict(
-        30.0, dew_point(30.0, 50.0), 22.0, dew_point(22.0, 95.0), False, CFG
+        30.0, dew_point(30.0, 50.0), 22.0, dew_point(22.0, 95.0), CFG
     )
     assert gate is True
     assert verdict == VERDICT_KEEP_CLOSED
@@ -125,28 +126,19 @@ def test_gate_uses_absolute_cap_not_indoor_comparison():
     cfg = EngineConfig()  # max_outdoor_dewpoint default 18.0
     # Cool night 22C, dew 14.5 (moderately humid); dry indoor 28.7C, dew 13.0.
     # Old logic gated this (14.5 > 13.0 + 1.0); the cap must NOT (14.5 < 18).
-    verdict, gate = decide_verdict(28.7, 13.0, 22.0, 14.5, False, cfg)
+    verdict, gate = decide_verdict(28.7, 13.0, 22.0, 14.5, cfg)
     assert gate is False
     assert verdict == VERDICT_OPEN
     # Oppressively humid 22C, dew 20.0 (> 18 cap) -> gated -> keep_closed.
-    verdict_muggy, gate_muggy = decide_verdict(28.7, 13.0, 22.0, 20.0, False, cfg)
+    verdict_muggy, gate_muggy = decide_verdict(28.7, 13.0, 22.0, 20.0, cfg)
     assert gate_muggy is True
     assert verdict_muggy == VERDICT_KEEP_CLOSED
-
-
-def test_ac_on_never_opens():
-    # Identical to the open case but the AC is running -> must not open.
-    verdict, _gate = decide_verdict(
-        30.0, dew_point(30.0, 50.0), 22.0, dew_point(22.0, 40.0), True, CFG
-    )
-    assert verdict != VERDICT_OPEN
-    assert verdict == VERDICT_KEEP_CLOSED
 
 
 def test_decide_keep_closed_when_indoor_comfortable_and_no_close_trigger():
     # indoor 24 (<= comfort_target so no open), outdoor 21 (no close): keep_closed.
     verdict, gate = decide_verdict(
-        24.0, dew_point(24.0, 50.0), 21.0, dew_point(21.0, 40.0), False, CFG
+        24.0, dew_point(24.0, 50.0), 21.0, dew_point(21.0, 40.0), CFG
     )
     assert verdict == VERDICT_KEEP_CLOSED
     assert gate is False
@@ -155,15 +147,13 @@ def test_decide_keep_closed_when_indoor_comfortable_and_no_close_trigger():
 def test_decide_close_when_indoor_at_or_below_min_indoor():
     # indoor 22.5 <= min_indoor 23 -> close regardless of a cool outdoor.
     verdict, _gate = decide_verdict(
-        22.5, dew_point(22.5, 50.0), 15.0, dew_point(15.0, 40.0), False, CFG
+        22.5, dew_point(22.5, 50.0), 15.0, dew_point(15.0, 40.0), CFG
     )
     assert verdict == VERDICT_CLOSE
 
 
 def test_decide_indoor_none_returns_keep_closed_no_gate():
-    verdict, gate = decide_verdict(
-        None, None, 20.0, dew_point(20.0, 40.0), False, CFG
-    )
+    verdict, gate = decide_verdict(None, None, 20.0, dew_point(20.0, 40.0), CFG)
     assert verdict == VERDICT_KEEP_CLOSED
     assert gate is False
 
@@ -171,16 +161,14 @@ def test_decide_indoor_none_returns_keep_closed_no_gate():
 def test_decide_gate_disabled_allows_open_even_if_muggy():
     cfg = EngineConfig(humidity_gate_enabled=False)
     verdict, gate = decide_verdict(
-        30.0, dew_point(30.0, 50.0), 22.0, dew_point(22.0, 95.0), False, cfg
+        30.0, dew_point(30.0, 50.0), 22.0, dew_point(22.0, 95.0), cfg
     )
     assert gate is False
     assert verdict == VERDICT_OPEN
 
 
 def test_decide_outdoor_none_keeps_closed():
-    verdict, _gate = decide_verdict(
-        29.0, dew_point(29.0, 50.0), None, None, False, CFG
-    )
+    verdict, _gate = decide_verdict(29.0, dew_point(29.0, 50.0), None, None, CFG)
     assert verdict == VERDICT_KEEP_CLOSED
 
 
@@ -263,25 +251,21 @@ def _series_24h(first_temp: float, humidity: float = 40.0):
     return _synthetic_24h(first_temp=first_temp, humidity=humidity)
 
 
-def test_run_engine_ac_off_reference_is_crossvent_and_open_soon():
-    # AC off -> reference = crossvent (30C). NOW outdoor 29 gives keep_closed,
-    # but a cool evening exists -> promoted to open_soon.
+def test_run_engine_reference_is_crossvent_and_open_soon():
+    # NOW outdoor 29 gives keep_closed, but a cool evening exists -> promoted
+    # to open_soon.
     forecasts = _series_24h(29.0)
     snap = run_decision_engine(
         NOW,
         forecasts,
         crossvent=ZoneReading("crossvent", 30.0, 50.0),
-        bedrooms=ZoneReading("bedrooms", 28.0, 50.0),
         bureau=ZoneReading("bureau", 27.0, 55.0),
-        ac_on=False,
         door_open=False,
         cfg=CFG,
     )
     assert isinstance(snap, Snapshot)
-    assert snap.reference_zone == "crossvent"
     assert snap.indoor_ref_temp == 30.0
     assert snap.outdoor_temp == 29.0
-    assert snap.ac_on is False
     assert snap.verdict == VERDICT_OPEN_SOON
     assert snap.reason == "open_soon"
     assert snap.next_open == datetime(2026, 7, 13, 19, 0, 0)
@@ -290,26 +274,27 @@ def test_run_engine_ac_off_reference_is_crossvent_and_open_soon():
     assert snap.degrees_saved == pytest.approx(2.0, abs=1e-9)
 
 
-def test_run_engine_ac_on_switches_reference_to_bedrooms():
-    # AC on and salon/cuisine (crossvent) reads AC-depressed 24C -> reference
-    # must switch to the warm bedrooms (30C).
-    forecasts = _series_24h(22.0)
+def test_run_engine_uses_hottest_crossvent_room_as_indoor_ref_temp():
+    # The crossvent ZoneReading is built via aggregate_zone from several
+    # rooms; its temp is already the hottest room. run_decision_engine must
+    # use that reading directly (no further aggregation/selection) as the
+    # indoor reference.
+    crossvent = aggregate_zone(
+        "crossvent", [24.0, 30.0, 27.0], [50.0, 45.0, 55.0]
+    )
+    assert crossvent.temp == 30.0  # sanity: hottest room wins
+
+    forecasts = _series_24h(29.0)
     snap = run_decision_engine(
         NOW,
         forecasts,
-        crossvent=ZoneReading("crossvent", 24.0, 55.0),
-        bedrooms=ZoneReading("bedrooms", 30.0, 50.0),
+        crossvent=crossvent,
         bureau=ZoneReading("bureau", 27.0, 55.0),
-        ac_on=True,
         door_open=False,
         cfg=CFG,
     )
-    assert snap.reference_zone == "bedrooms"
     assert snap.indoor_ref_temp == 30.0
-    assert snap.ac_on is True
-    # AC on -> never OPEN and never promoted to OPEN_SOON.
-    assert snap.verdict == VERDICT_KEEP_CLOSED
-    assert snap.outdoor_temp == 22.0
+    assert snap.zones["crossvent"].indoor_temp == 30.0
 
 
 def test_run_engine_populates_zone_results():
@@ -318,9 +303,7 @@ def test_run_engine_populates_zone_results():
         NOW,
         forecasts,
         crossvent=ZoneReading("crossvent", 30.0, 50.0),
-        bedrooms=ZoneReading("bedrooms", 28.0, 50.0),
         bureau=ZoneReading("bureau", 27.0, 55.0),
-        ac_on=False,
         door_open=False,
         cfg=CFG,
     )
@@ -339,9 +322,7 @@ def test_run_engine_forecast_series_shape():
         NOW,
         forecasts,
         crossvent=ZoneReading("crossvent", 30.0, 50.0),
-        bedrooms=ZoneReading("bedrooms", 28.0, 50.0),
         bureau=ZoneReading("bureau", 27.0, 55.0),
-        ac_on=False,
         door_open=False,
         cfg=CFG,
     )
@@ -361,9 +342,7 @@ def test_run_engine_current_verdict_close_when_outdoor_hot_now():
         NOW,
         forecasts,
         crossvent=ZoneReading("crossvent", 30.0, 50.0),
-        bedrooms=ZoneReading("bedrooms", 28.0, 50.0),
         bureau=ZoneReading("bureau", 27.0, 55.0),
-        ac_on=False,
         door_open=False,
         cfg=CFG,
     )

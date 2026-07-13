@@ -8,10 +8,6 @@ from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openwindows.const import (
-    CONF_AC_POWER,
-    CONF_AC_THRESHOLD,
-    CONF_BEDROOM_HUM,
-    CONF_BEDROOM_TEMP,
     CONF_BUREAU_HUM,
     CONF_BUREAU_TEMP,
     CONF_CLOSE_MARGIN,
@@ -44,11 +40,8 @@ USER_INPUT = {
     CONF_SOLAR_WEATHER: "weather.maison",
     CONF_CROSSVENT_TEMP: ["sensor.salon_temp", "sensor.cuisine_temp"],
     CONF_CROSSVENT_HUM: ["sensor.salon_hum", "sensor.cuisine_hum"],
-    CONF_BEDROOM_TEMP: ["sensor.chambre_temp", "sensor.chambre_2_temp"],
-    CONF_BEDROOM_HUM: ["sensor.chambre_hum"],
     CONF_BUREAU_TEMP: "sensor.bureau_temp",
     CONF_BUREAU_HUM: "sensor.bureau_hum",
-    CONF_AC_POWER: "sensor.clim_power",
     CONF_DOOR: "binary_sensor.porte_balcon",
     CONF_ORIENTATION: "SW",
 }
@@ -96,7 +89,6 @@ async def test_options_flow_stores_options(hass: HomeAssistant) -> None:
         CONF_MIN_INDOOR: 22.0,
         CONF_HUMIDITY_GATE: False,
         CONF_MAX_DEWPOINT: 17.0,
-        CONF_AC_THRESHOLD: 120.0,
         CONF_WALL_MASS: "heavy",
         CONF_VENTILATION: "low",
         CONF_UPDATE_INTERVAL: 30,
@@ -129,7 +121,6 @@ async def test_options_flow_defaults_shown(hass: HomeAssistant) -> None:
     assert entry.options[CONF_MIN_INDOOR] == 23.0
     assert entry.options[CONF_HUMIDITY_GATE] is True
     assert entry.options[CONF_MAX_DEWPOINT] == 18.0
-    assert entry.options[CONF_AC_THRESHOLD] == 100.0
     assert entry.options[CONF_WALL_MASS] == "medium"
     assert entry.options[CONF_VENTILATION] == "high"
     assert entry.options[CONF_UPDATE_INTERVAL] == 15
