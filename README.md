@@ -1,22 +1,29 @@
 # OpenWindows
 
 Intégration personnalisée Home Assistant qui indique **quand ouvrir ou fermer
-les fenêtres** pour rafraîchir naturellement le logement, à partir de deux
-prévisions météo (température + solaire) et des capteurs de température /
-humidité de vos pièces. V1 = logique de croisement extérieur/intérieur avec
-hystérésis, filtre point de rosée (humidité), référence intérieure = la pièce
-la plus chaude du cœur traversant, et notifications texte (blueprints
-auto-copiés). Pas de dépendance lourde (pas de numpy / matplotlib en V1).
+les fenêtres** pour rafraîchir naturellement le logement, à partir d'une seule
+prévision météo (température + humidité + couverture nuageuse) et des
+capteurs de température / humidité de vos pièces. V1 = logique de croisement
+extérieur/intérieur avec hystérésis, filtre point de rosée (humidité),
+référence intérieure = la pièce la plus chaude du cœur traversant, et
+notifications texte (blueprints auto-copiés). Pas de dépendance lourde (pas
+de numpy / matplotlib en V1).
 
 ## Qu'est-ce que OpenWindows ?
 
 L'intégration interroge à intervalle régulier (15 min par défaut, réglable)
-la prévision horaire de deux entités météo :
+la prévision horaire d'**une seule entité météo**, qui pilote le calcul
+(température + humidité, dont le point de rosée est dérivé). La couverture
+nuageuse (et l'ensoleillement, si la source le fournit) de cette même
+prévision horaire sont également récupérés et stockés, en réserve pour le
+futur modèle solaire de la V2, mais ne sont pas utilisés par le calcul en V1.
 
-- une entité **température** (ex. Météo-France) qui pilote le calcul ;
-- une entité **solaire / horizon long** (ex. Open-Meteo) dont la couverture
-  nuageuse et l'ensoleillement sont fusionnés dans la même série horaire
-  (réservé aux évolutions futures du modèle).
+> **Important :** l'entité météo choisie doit exposer une **prévision
+> horaire** (`weather.get_forecasts`, type `hourly`) incluant la **couverture
+> nuageuse** (`cloud_coverage`) en plus de la température et de l'humidité.
+> **Open-Meteo** est recommandée : elle fournit température, humidité et
+> couverture nuageuse dans une seule entité, ce qui alimentera le futur
+> modèle de gain solaire de la V2.
 
 Elle combine ça avec vos capteurs de température/humidité (cœur traversant,
 bureau) et l'état de la porte de balcon pour produire un **verdict** (`open`,
@@ -48,8 +55,7 @@ configuration Home Assistant, puis redémarrez.
 
 | Champ | Description |
 | --- | --- |
-| Entité météo — température | Entité `weather.*` qui fournit la prévision horaire de température/humidité utilisée pour le calcul (ex. Météo-France). Sélectionnez **une seule entité**. |
-| Entité météo — solaire / horizon long | Entité `weather.*` dont la couverture nuageuse et l'ensoleillement horaires sont fusionnés (ex. Open-Meteo). Sélectionnez **une seule entité**. |
+| Entité météo | Entité `weather.*` qui fournit la prévision horaire (température, humidité, couverture nuageuse) utilisée pour le calcul, ex. `weather.home` (**Open-Meteo** recommandée). Sélectionnez **une seule entité**. La prévision doit inclure la **couverture nuageuse** (`cloud_coverage`) : ces données alimentent le futur modèle solaire de la V2. |
 | Capteurs de température — cœur traversant | Capteurs `sensor.*` (device_class température) des pièces traversantes (salon, cuisine, chambres). La référence intérieure retenue est la température **la plus chaude** parmi ces capteurs. |
 | Capteurs d'humidité — cœur traversant | Capteurs `sensor.*` (device_class humidité) associés (moyenne, informatif). |
 | Capteur de température — bureau | Un seul capteur `sensor.*` (device_class température). |
@@ -57,10 +63,10 @@ configuration Home Assistant, puis redémarrez.
 | Capteur d'ouverture de porte | `binary_sensor.*` de porte/fenêtre. |
 | Orientation des fenêtres principales | Point cardinal (N, NE, E, SE, S, SW, W, NW). |
 
-> Les deux champs météo sont en **sélection unique** (une entité par champ).
-> Les réglages *orientation*, *inertie des murs* et *ventilation* sont
-> enregistrés pour le **modèle thermique de la V2** et n'ont pas encore
-> d'effet sur le verdict en V1.
+> Le champ météo est en **sélection unique** (une seule entité). Les réglages
+> *orientation*, *inertie des murs* et *ventilation* sont enregistrés pour le
+> **modèle thermique de la V2** et n'ont pas encore d'effet sur le verdict en
+> V1.
 
 L'entrée se crée sans étape supplémentaire ; un appareil **OpenWindows**
 apparaît avec toutes les entités ci-dessous.

@@ -22,9 +22,8 @@ from .const import (
     CONF_MAX_DEWPOINT,
     CONF_MIN_INDOOR,
     CONF_OPEN_MARGIN,
-    CONF_SOLAR_WEATHER,
-    CONF_TEMP_WEATHER,
     CONF_UPDATE_INTERVAL,
+    CONF_WEATHER,
     DOMAIN,
 )
 from .engine import EngineConfig, HourForecast, Snapshot, run_decision_engine
@@ -71,15 +70,16 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
         hums = [self._state_float(eid) for eid in (hum_ids or [])]
         return aggregate_zone(name, temps, hums)
 
-    def _parse_forecasts(self, temp_fc: list, solar_fc: list) -> list[HourForecast]:
-        """Merge the temp-source and solar-source hourly forecasts into HourForecasts.
+    def _parse_forecasts(self, fc: list) -> list[HourForecast]:
+        """Parse a single weather entity's hourly forecast into HourForecasts.
 
-        The temperature weather source drives time/temp/humidity (and dew point when
-        both are present). Cloud cover and solar are pulled from the solar weather
-        source, aligned by index.
+        Time/temp/humidity (and dew point when both are present) drive the V1
+        engine. Cloud cover (and solar, when a source provides it) are also
+        read from the same item and stored on HourForecast for the future V2
+        solar-gain model; they are not used by the V1 engine.
         """
         hours: list[HourForecast] = []
-        for i, item in enumerate(temp_fc):
+        for item in fc:
             raw_time = item.get("datetime")
             time = dt_util.parse_datetime(raw_time) if raw_time else None
             if time is None:
@@ -91,12 +91,8 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
                 if temp is not None and humidity is not None
                 else None
             )
-            cloud = None
-            solar = None
-            if i < len(solar_fc):
-                source = solar_fc[i]
-                cloud = source.get("cloud_coverage")
-                solar = source.get("solar")
+            cloud = item.get("cloud_coverage")
+            solar = item.get("solar")
             hours.append(
                 HourForecast(
                     time=time,
@@ -124,20 +120,15 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
 
     async def _async_update_data(self) -> Snapshot:
         """Fetch data, run the decision engine, and return a Snapshot."""
-        temp_entity = self._cfg.get(CONF_TEMP_WEATHER)
-        solar_entity = self._cfg.get(CONF_SOLAR_WEATHER)
-        if not temp_entity:
-            raise UpdateFailed("No temperature weather entity configured")
+        weather_entity = self._cfg.get(CONF_WEATHER)
+        if not weather_entity:
+            raise UpdateFailed("No weather entity configured")
 
-        temp_fc = await self._async_get_forecast(temp_entity)
-        solar_fc = (
-            await self._async_get_forecast(solar_entity) if solar_entity else []
-        )
+        fc = await self._async_get_forecast(weather_entity)
+        if not fc:
+            raise UpdateFailed(f"No hourly forecast available for {weather_entity}")
 
-        if not temp_fc:
-            raise UpdateFailed(f"No hourly forecast available for {temp_entity}")
-
-        forecasts = self._parse_forecasts(temp_fc, solar_fc)
+        forecasts = self._parse_forecasts(fc)
         if not forecasts:
             raise UpdateFailed("Hourly forecast could not be parsed")
 
@@ -182,19 +173,13 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
 
     @callback
     def async_setup_forecast_triggers(self) -> None:
-        """Refresh whenever either weather entity publishes a new state.
+        """Refresh whenever the weather entity publishes a new state.
 
         The unsubscribe callback is registered on the config entry so it is torn
         down automatically on unload.
         """
-        entities = [
-            entity_id
-            for entity_id in (
-                self._cfg.get(CONF_TEMP_WEATHER),
-                self._cfg.get(CONF_SOLAR_WEATHER),
-            )
-            if entity_id
-        ]
+        weather_entity = self._cfg.get(CONF_WEATHER)
+        entities = [weather_entity] if weather_entity else []
         if not entities:
             return
 

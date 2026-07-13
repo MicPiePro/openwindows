@@ -13,9 +13,8 @@ from custom_components.openwindows.const import (
     CONF_CROSSVENT_TEMP,
     CONF_DOOR,
     CONF_ORIENTATION,
-    CONF_SOLAR_WEATHER,
-    CONF_TEMP_WEATHER,
     CONF_UPDATE_INTERVAL,
+    CONF_WEATHER,
     DOMAIN,
     VERDICT_OPEN,
 )
@@ -27,8 +26,7 @@ def _make_entry(hass, options=None):
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_TEMP_WEATHER: "weather.home",
-            CONF_SOLAR_WEATHER: "weather.maison",
+            CONF_WEATHER: "weather.home",
             CONF_CROSSVENT_TEMP: ["sensor.salon_temp"],
             CONF_CROSSVENT_HUM: ["sensor.salon_hum"],
             CONF_BUREAU_TEMP: "sensor.bureau_temp",
@@ -43,7 +41,7 @@ def _make_entry(hass, options=None):
 
 
 def _forecast_response():
-    """Canned weather.get_forecasts response for both weather entities."""
+    """Canned weather.get_forecasts response for the single weather entity."""
     return {
         "weather.home": {
             "forecast": [
@@ -51,25 +49,13 @@ def _forecast_response():
                     "datetime": "2026-07-13T14:00:00+00:00",
                     "temperature": 20.0,
                     "humidity": 50,
+                    "cloud_coverage": 10,
                 },
                 {
                     "datetime": "2026-07-13T15:00:00+00:00",
                     "temperature": 19.0,
                     "humidity": 52,
-                },
-            ]
-        },
-        "weather.maison": {
-            "forecast": [
-                {
-                    "datetime": "2026-07-13T14:00:00+00:00",
-                    "cloud_coverage": 10,
-                    "solar": 800,
-                },
-                {
-                    "datetime": "2026-07-13T15:00:00+00:00",
                     "cloud_coverage": 5,
-                    "solar": 850,
                 },
             ]
         },
@@ -109,14 +95,13 @@ async def test_read_zone_max(hass):
     assert reading.humidity is None
 
 
-async def test_parse_forecasts_merges_and_computes_dew_point(hass):
+async def test_parse_forecasts_computes_dew_point_and_reads_cloud_cover(hass):
     entry = _make_entry(hass)
     coordinator = OpenWindowsCoordinator(hass, entry)
     resp = _forecast_response()
-    temp_fc = resp["weather.home"]["forecast"]
-    solar_fc = resp["weather.maison"]["forecast"]
+    fc = resp["weather.home"]["forecast"]
 
-    hours = coordinator._parse_forecasts(temp_fc, solar_fc)
+    hours = coordinator._parse_forecasts(fc)
 
     assert len(hours) == 2
     first = hours[0]
@@ -125,16 +110,17 @@ async def test_parse_forecasts_merges_and_computes_dew_point(hass):
     # dew point computed from temp+humidity via Magnus (approx 9.3 C)
     assert first.dew_point is not None
     assert 9.0 < first.dew_point < 9.6
-    # cloud + solar pulled from the solar weather source by index
+    # cloud cover read from the same forecast item (Open-Meteo-style payload)
     assert first.cloud_cover == 10
-    assert first.solar == 800
+    # HA's weather.get_forecasts hourly items don't carry a raw solar field
+    assert first.solar is None
 
 
 async def test_parse_forecasts_dew_point_none_without_humidity(hass):
     entry = _make_entry(hass)
     coordinator = OpenWindowsCoordinator(hass, entry)
-    temp_fc = [{"datetime": "2026-07-13T14:00:00+00:00", "temperature": 22.0}]
-    hours = coordinator._parse_forecasts(temp_fc, [])
+    fc = [{"datetime": "2026-07-13T14:00:00+00:00", "temperature": 22.0}]
+    hours = coordinator._parse_forecasts(fc)
     assert len(hours) == 1
     assert hours[0].humidity is None
     assert hours[0].dew_point is None
@@ -179,7 +165,6 @@ async def test_update_data_raises_when_no_forecast(hass):
     coordinator = OpenWindowsCoordinator(hass, entry)
     empty_response = {
         "weather.home": {"forecast": []},
-        "weather.maison": {"forecast": []},
     }
     with _patch_forecast_service(hass, empty_response):
         await coordinator.async_refresh()

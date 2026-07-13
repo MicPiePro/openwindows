@@ -16,9 +16,8 @@ from custom_components.openwindows.const import (
     CONF_CROSSVENT_TEMP,
     CONF_DOOR,
     CONF_ORIENTATION,
-    CONF_SOLAR_WEATHER,
-    CONF_TEMP_WEATHER,
     CONF_UPDATE_INTERVAL,
+    CONF_WEATHER,
     DOMAIN,
 )
 from custom_components.openwindows.coordinator import OpenWindowsCoordinator
@@ -32,8 +31,7 @@ def _make_entry(hass, options=None):
     entry = MockConfigEntry(
         domain=DOMAIN,
         data={
-            CONF_TEMP_WEATHER: "weather.home",
-            CONF_SOLAR_WEATHER: "weather.maison",
+            CONF_WEATHER: "weather.home",
             CONF_CROSSVENT_TEMP: ["sensor.salon_temp"],
             CONF_CROSSVENT_HUM: ["sensor.salon_hum"],
             CONF_BUREAU_TEMP: "sensor.bureau_temp",
@@ -48,7 +46,7 @@ def _make_entry(hass, options=None):
 
 
 def _forecast_response():
-    """Canned weather.get_forecasts response for both weather entities."""
+    """Canned weather.get_forecasts response for the single weather entity."""
     return {
         "weather.home": {
             "forecast": [
@@ -56,25 +54,13 @@ def _forecast_response():
                     "datetime": "2026-07-13T14:00:00+00:00",
                     "temperature": 20.0,
                     "humidity": 50,
+                    "cloud_coverage": 10,
                 },
                 {
                     "datetime": "2026-07-13T15:00:00+00:00",
                     "temperature": 19.0,
                     "humidity": 52,
-                },
-            ]
-        },
-        "weather.maison": {
-            "forecast": [
-                {
-                    "datetime": "2026-07-13T14:00:00+00:00",
-                    "cloud_coverage": 10,
-                    "solar": 800,
-                },
-                {
-                    "datetime": "2026-07-13T15:00:00+00:00",
                     "cloud_coverage": 5,
-                    "solar": 850,
                 },
             ]
         },
@@ -176,7 +162,6 @@ async def test_async_setup_entry_returns_false_like_behavior_on_bad_forecast(
     _set_sensor_states(hass)
     empty_response = {
         "weather.home": {"forecast": []},
-        "weather.maison": {"forecast": []},
     }
 
     with _patch_forecast_service(hass, empty_response):

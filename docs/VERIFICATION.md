@@ -13,14 +13,19 @@
 ## 2. Ajout de l'intégration
 - [ ] Paramètres > Appareils et services > **Ajouter une intégration** > "OpenWindows".
 - [ ] Renseigner le formulaire (ConfigFlow) :
-  - Météo température : `weather.home`
-  - Météo solaire : `weather.maison`
+  - Entité météo (prévision horaire avec couverture nuageuse, ex. Open-Meteo) : `weather.home`
   - Capteurs température zone traversante (Salon, Cuisine, Chambre, Chambre 2)
   - Capteurs humidité zone traversante
   - Capteur température / humidité Bureau
   - Capteur d'ouverture de porte
   - Orientation
 - **Attendu :** l'entrée se crée sans erreur, un appareil "OpenWindows" apparaît.
+- **Note :** l'entité météo choisie doit exposer une **prévision horaire**
+  incluant la **couverture nuageuse** (`cloud_coverage`) en plus de la
+  température et de l'humidité. **Open-Meteo** est recommandée car elle
+  fournit ces trois données dans une seule entité ; la couverture nuageuse
+  (et l'ensoleillement, si disponible) alimentera le futur modèle solaire de
+  la V2.
 
 ## 3. Entités créées
 - [ ] Ouvrir l'appareil "OpenWindows".

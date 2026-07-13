@@ -11,8 +11,7 @@ def test_core_identifiers():
 
 
 def test_data_keys():
-    assert const.CONF_TEMP_WEATHER == "temp_weather"
-    assert const.CONF_SOLAR_WEATHER == "solar_weather"
+    assert const.CONF_WEATHER == "weather"
     assert const.CONF_CROSSVENT_TEMP == "crossvent_temp_sensors"
     assert const.CONF_CROSSVENT_HUM == "crossvent_humidity_sensors"
     assert const.CONF_BUREAU_TEMP == "bureau_temp_sensor"

@@ -10,8 +10,7 @@ PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
 DEFAULT_UPDATE_INTERVAL = timedelta(minutes=15)
 
 # --- Config-entry DATA keys (structural, chosen in ConfigFlow -> entry.data) ---
-CONF_TEMP_WEATHER = "temp_weather"
-CONF_SOLAR_WEATHER = "solar_weather"
+CONF_WEATHER = "weather"
 CONF_CROSSVENT_TEMP = "crossvent_temp_sensors"
 CONF_CROSSVENT_HUM = "crossvent_humidity_sensors"
 CONF_BUREAU_TEMP = "bureau_temp_sensor"

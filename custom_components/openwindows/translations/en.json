@@ -3,10 +3,9 @@
     "step": {
       "user": {
         "title": "OpenWindows setup",
-        "description": "Select the weather entities and the temperature/humidity sensors for your rooms.",
+        "description": "Select the weather entity and the temperature/humidity sensors for your rooms.",
         "data": {
-          "temp_weather": "Weather entity — temperature (Météo-France)",
-          "solar_weather": "Weather entity — solar / long horizon (Open-Meteo)",
+          "weather": "Weather entity (hourly forecast, e.g. Open-Meteo)",
           "crossvent_temp_sensors": "Temperature sensors — cross-vent core (living, kitchen, bedrooms)",
           "crossvent_humidity_sensors": "Humidity sensors — cross-vent core",
           "bureau_temp_sensor": "Temperature sensor — office",

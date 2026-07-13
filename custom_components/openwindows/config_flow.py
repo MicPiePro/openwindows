@@ -36,11 +36,10 @@ from .const import (
     CONF_MIN_INDOOR,
     CONF_OPEN_MARGIN,
     CONF_ORIENTATION,
-    CONF_SOLAR_WEATHER,
-    CONF_TEMP_WEATHER,
     CONF_UPDATE_INTERVAL,
     CONF_VENTILATION,
     CONF_WALL_MASS,
+    CONF_WEATHER,
     DOMAIN,
     ORIENTATION_OPTIONS,
     VENT_OPTIONS,
@@ -50,12 +49,9 @@ from .const import (
 USER_SCHEMA = vol.Schema(
     {
         # Single-select (scalar entity id): the coordinator calls
-        # weather.get_forecasts per entity and indexes the response by id,
-        # so these MUST be scalars, not lists. See test_config_flow regression.
-        vol.Required(CONF_TEMP_WEATHER): EntitySelector(
-            EntitySelectorConfig(domain="weather")
-        ),
-        vol.Required(CONF_SOLAR_WEATHER): EntitySelector(
+        # weather.get_forecasts on this entity and indexes the response by id,
+        # so this MUST be a scalar, not a list. See test_config_flow regression.
+        vol.Required(CONF_WEATHER): EntitySelector(
             EntitySelectorConfig(domain="weather")
         ),
         vol.Required(CONF_CROSSVENT_TEMP): EntitySelector(

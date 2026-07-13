@@ -3,10 +3,9 @@
     "step": {
       "user": {
         "title": "Configuration OpenWindows",
-        "description": "Sélectionnez les entités météo et les capteurs de température/humidité de vos pièces.",
+        "description": "Sélectionnez l'entité météo et les capteurs de température/humidité de vos pièces.",
         "data": {
-          "temp_weather": "Entité météo — température (Météo-France)",
-          "solar_weather": "Entité météo — solaire / horizon long (Open-Meteo)",
+          "weather": "Entité météo (prévision horaire, ex. Open-Meteo)",
           "crossvent_temp_sensors": "Capteurs de température — cœur traversant (salon, cuisine, chambres)",
           "crossvent_humidity_sensors": "Capteurs d'humidité — cœur traversant",
           "bureau_temp_sensor": "Capteur de température — bureau",

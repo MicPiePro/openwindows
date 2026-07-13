@@ -20,11 +20,10 @@ from custom_components.openwindows.const import (
     CONF_MIN_INDOOR,
     CONF_OPEN_MARGIN,
     CONF_ORIENTATION,
-    CONF_SOLAR_WEATHER,
-    CONF_TEMP_WEATHER,
     CONF_UPDATE_INTERVAL,
     CONF_VENTILATION,
     CONF_WALL_MASS,
+    CONF_WEATHER,
     DOMAIN,
 )
 
@@ -36,8 +35,7 @@ def _enable(enable_custom_integrations):
 
 
 USER_INPUT = {
-    CONF_TEMP_WEATHER: "weather.home",
-    CONF_SOLAR_WEATHER: "weather.maison",
+    CONF_WEATHER: "weather.home",
     CONF_CROSSVENT_TEMP: ["sensor.salon_temp", "sensor.cuisine_temp"],
     CONF_CROSSVENT_HUM: ["sensor.salon_hum", "sensor.cuisine_hum"],
     CONF_BUREAU_TEMP: "sensor.bureau_temp",
@@ -66,11 +64,10 @@ async def test_user_flow_creates_entry(hass: HomeAssistant) -> None:
     assert result2["data"] == USER_INPUT
     assert result2["options"] == {}
 
-    # Regression (config-flow <-> coordinator seam): the two weather fields must
-    # be stored as scalar entity ids, not lists. multiple=True would make the
+    # Regression (config-flow <-> coordinator seam): the weather field must be
+    # stored as a scalar entity id, not a list. multiple=True would make the
     # coordinator's `entity_id not in response` raise TypeError on a list.
-    assert isinstance(result2["data"][CONF_TEMP_WEATHER], str)
-    assert isinstance(result2["data"][CONF_SOLAR_WEATHER], str)
+    assert isinstance(result2["data"][CONF_WEATHER], str)
 
 
 async def test_options_flow_stores_options(hass: HomeAssistant) -> None:
