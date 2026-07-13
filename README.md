@@ -4,10 +4,9 @@ Intégration personnalisée Home Assistant qui indique **quand ouvrir ou fermer
 les fenêtres** pour rafraîchir naturellement le logement, à partir de deux
 prévisions météo (température + solaire) et des capteurs de température /
 humidité de vos pièces. V1 = logique de croisement extérieur/intérieur avec
-hystérésis, filtre point de rosée (humidité), référence de zone qui bascule
-automatiquement quand le climatiseur portable tourne, et notifications
-texte (blueprints auto-copiés). Pas de dépendance lourde (pas de numpy /
-matplotlib en V1).
+hystérésis, filtre point de rosée (humidité), référence intérieure = la pièce
+la plus chaude du cœur traversant, et notifications texte (blueprints
+auto-copiés). Pas de dépendance lourde (pas de numpy / matplotlib en V1).
 
 ## Qu'est-ce que OpenWindows ?
 
@@ -20,11 +19,12 @@ la prévision horaire de deux entités météo :
   (réservé aux évolutions futures du modèle).
 
 Elle combine ça avec vos capteurs de température/humidité (cœur traversant,
-chambres, bureau), la puissance du climatiseur portable et l'état de la porte
-de balcon pour produire un **verdict** (`open`, `close`, `keep_closed`,
-`open_soon`), une **prochaine ouverture/fermeture** prévue, et une prévision
-d'intérieur. Deux blueprints d'automatisation (notification + ventilateur)
-sont copiés automatiquement dans votre configuration au premier démarrage.
+bureau) et l'état de la porte de balcon pour produire un **verdict** (`open`,
+`close`, `keep_closed`, `open_soon`), une **prochaine ouverture/fermeture**
+prévue, et une prévision d'intérieur. La référence intérieure globale est la
+température de la pièce la plus chaude parmi les capteurs du cœur traversant.
+Deux blueprints d'automatisation (notification + ventilateur) sont copiés
+automatiquement dans votre configuration au premier démarrage.
 
 ## Installation via HACS (dépôt personnalisé)
 
@@ -50,13 +50,10 @@ configuration Home Assistant, puis redémarrez.
 | --- | --- |
 | Entité météo — température | Entité `weather.*` qui fournit la prévision horaire de température/humidité utilisée pour le calcul (ex. Météo-France). Sélectionnez **une seule entité**. |
 | Entité météo — solaire / horizon long | Entité `weather.*` dont la couverture nuageuse et l'ensoleillement horaires sont fusionnés (ex. Open-Meteo). Sélectionnez **une seule entité**. |
-| Capteurs de température — cœur traversant | Capteurs `sensor.*` (device_class température) des pièces traversantes (salon, cuisine, chambres). |
-| Capteurs d'humidité — cœur traversant | Capteurs `sensor.*` (device_class humidité) associés. |
-| Capteurs de température — chambres | Capteurs de référence utilisés quand le climatiseur portable tourne. |
-| Capteurs d'humidité — chambres | Capteurs d'humidité associés. |
+| Capteurs de température — cœur traversant | Capteurs `sensor.*` (device_class température) des pièces traversantes (salon, cuisine, chambres). La référence intérieure retenue est la température **la plus chaude** parmi ces capteurs. |
+| Capteurs d'humidité — cœur traversant | Capteurs `sensor.*` (device_class humidité) associés (moyenne, informatif). |
 | Capteur de température — bureau | Un seul capteur `sensor.*` (device_class température). |
 | Capteur d'humidité — bureau | Un seul capteur `sensor.*` (device_class humidité). |
-| Capteur de puissance — climatiseur portable | Capteur `sensor.*` (device_class puissance) qui détecte si la clim tourne. |
 | Capteur d'ouverture de porte | `binary_sensor.*` de porte/fenêtre. |
 | Orientation des fenêtres principales | Point cardinal (N, NE, E, SE, S, SW, W, NW). |
 
@@ -74,8 +71,8 @@ Depuis la carte de l'intégration, cliquez sur **Configurer** pour ajuster les
 seuils de décision sans recréer l'intégration : température de confort cible,
 marge d'ouverture, marge de fermeture (hystérésis), température intérieure
 minimale, activation du filtre d'humidité (point de rosée) et sa marge,
-seuil de puissance clim, inertie des murs, niveau de ventilation, et
-intervalle de mise à jour. Ces réglages ne sont pas exposés comme entités
+inertie des murs, niveau de ventilation, et intervalle de mise à jour. Ces
+réglages ne sont pas exposés comme entités
 Home Assistant en V1 (pas de carte Lovelace dédiée possible) — modifiez-les
 via **Paramètres > Appareils et services > OpenWindows > Configurer**.
 
@@ -86,15 +83,14 @@ Toutes les entités partagent l'appareil **OpenWindows** et sont préfixées
 
 | Entité | Type | Description | Attributs |
 | --- | --- | --- | --- |
-| `sensor.openwindows_verdict` | sensor | Verdict global : `open`, `close`, `keep_closed` ou `open_soon`. | `reason`, `outdoor_temp`, `indoor_ref_temp`, `reference_zone`, `humidity_gate_blocking`, `ac_on` |
+| `sensor.openwindows_verdict` | sensor | Verdict global : `open`, `close`, `keep_closed` ou `open_soon`. | `reason`, `outdoor_temp`, `indoor_ref_temp`, `humidity_gate_blocking` |
 | `sensor.openwindows_next_open` | sensor (timestamp) | Horodatage de la prochaine ouverture conseillée. | — |
 | `sensor.openwindows_next_close` | sensor (timestamp) | Horodatage de la prochaine fermeture conseillée. | — |
 | `sensor.openwindows_predicted_indoor` | sensor (°C) | Pic d'intérieur prévu sur l'horizon de prévision. | `forecast` : liste `{time_iso, outdoor, indoor_pred, comfort}` |
 | `sensor.openwindows_current_outdoor` | sensor (°C) | Température extérieure courante utilisée pour la décision. | `dew_point` |
-| `sensor.openwindows_zone_crossvent` | sensor | Verdict de la zone "cœur traversant". | `indoor_temp`, `indoor_dew_point`, `humidity_gate_blocking` |
+| `sensor.openwindows_zone_crossvent` | sensor | Verdict de la zone "cœur traversant" (référence = pièce la plus chaude). | `indoor_temp`, `indoor_dew_point`, `humidity_gate_blocking` |
 | `sensor.openwindows_zone_bureau` | sensor | Verdict de la zone "bureau". | `indoor_temp`, `indoor_dew_point`, `humidity_gate_blocking` |
 | `sensor.openwindows_degrees_saved` | sensor (°C) | Degrés de chauffe intérieure évités en suivant le conseil. | — |
-| `binary_sensor.openwindows_ac_active` | binary_sensor | Allumé quand le climatiseur portable est détecté en marche. | — |
 | `binary_sensor.openwindows_humidity_gate` | binary_sensor | Allumé quand le filtre d'humidité (point de rosée) bloque une ouverture. | — |
 
 > L'attribut `forecast` de `sensor.openwindows_predicted_indoor` est une liste
@@ -146,8 +142,6 @@ entities:
     name: Zone traversante
   - entity: sensor.openwindows_zone_bureau
     name: Bureau
-  - entity: binary_sensor.openwindows_ac_active
-    name: Climatiseur actif
   - entity: binary_sensor.openwindows_humidity_gate
     name: Blocage humidité (point de rosée)
 ```
@@ -163,7 +157,7 @@ content: >-
 
 
   Extérieur : {{ state_attr('sensor.openwindows_verdict', 'outdoor_temp') }} °C
-  · Intérieur (zone {{ state_attr('sensor.openwindows_verdict', 'reference_zone') }}) :
+  · Intérieur (pièce la plus chaude) :
   {{ state_attr('sensor.openwindows_verdict', 'indoor_ref_temp') }} °C
 
 
@@ -210,8 +204,6 @@ title: OpenWindows — Vue rapide
 entities:
   - entity: sensor.openwindows_verdict
     name: Verdict
-  - entity: binary_sensor.openwindows_ac_active
-    name: Clim
   - entity: binary_sensor.openwindows_humidity_gate
     name: Humidité
   - entity: sensor.openwindows_degrees_saved
@@ -299,5 +291,5 @@ verdict peuplé, blueprints, notification) est disponible dans
 Non implémenté en V1, prévu dans un plan dédié : modèle thermique RC à
 2 nœuds (numpy) pour une vraie prévision `indoor_pred`, PNG matplotlib inséré
 dans la notification, auto-calibration de τ à partir de l'historique du
-recorder (en excluant les périodes de clim), terme solaire via Open-Meteo,
-et carte Lovelace "hero" empaquetée en option.
+recorder, terme solaire via Open-Meteo, et carte Lovelace "hero" empaquetée
+en option.

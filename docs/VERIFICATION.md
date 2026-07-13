@@ -17,9 +17,7 @@
   - Météo solaire : `weather.maison`
   - Capteurs température zone traversante (Salon, Cuisine, Chambre, Chambre 2)
   - Capteurs humidité zone traversante
-  - Capteurs température / humidité chambres (référence quand la clim tourne)
   - Capteur température / humidité Bureau
-  - Capteur de puissance de la clim portable
   - Capteur d'ouverture de porte
   - Orientation
 - **Attendu :** l'entrée se crée sans erreur, un appareil "OpenWindows" apparaît.
@@ -30,14 +28,15 @@
   `sensor.openwindows_next_close`, `sensor.openwindows_predicted_indoor`,
   `sensor.openwindows_current_outdoor`, `sensor.openwindows_zone_crossvent`,
   `sensor.openwindows_zone_bureau`, `sensor.openwindows_degrees_saved`,
-  `binary_sensor.openwindows_ac_active`, `binary_sensor.openwindows_humidity_gate`.
+  `binary_sensor.openwindows_humidity_gate`.
 
 ## 4. Le verdict est peuplé
 - [ ] Outils de développement > États > filtrer `sensor.openwindows_verdict`.
 - **Attendu :** l'état vaut `open`, `close`, `keep_closed` ou `open_soon`
   (jamais `unknown`/`unavailable` après le premier rafraîchissement), et les
-  attributs `reason`, `outdoor_temp`, `indoor_ref_temp`, `reference_zone`,
-  `humidity_gate_blocking`, `ac_on` sont présents.
+  attributs `reason`, `outdoor_temp`, `indoor_ref_temp`,
+  `humidity_gate_blocking` sont présents. `indoor_ref_temp` correspond à la
+  température de la pièce la plus chaude du cœur traversant.
 
 ## 5. Tableau de bord
 - [ ] Ajouter les cartes du [README — Cartes de tableau de bord](../README.md#cartes-de-tableau-de-bord)

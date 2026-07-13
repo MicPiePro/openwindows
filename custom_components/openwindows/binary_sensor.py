@@ -20,23 +20,9 @@ async def async_setup_entry(
     coordinator: OpenWindowsCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         [
-            ACActiveBinarySensor(coordinator, entry),
             HumidityGateBinarySensor(coordinator, entry),
         ]
     )
-
-
-class ACActiveBinarySensor(OpenWindowsBaseEntity, BinarySensorEntity):
-    """On when the portable AC is detected as running."""
-
-    _attr_name = "AC Active"
-
-    def __init__(self, coordinator: OpenWindowsCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry, "ac_active")
-
-    @property
-    def is_on(self) -> bool:
-        return self.coordinator.data.ac_on
 
 
 class HumidityGateBinarySensor(OpenWindowsBaseEntity, BinarySensorEntity):

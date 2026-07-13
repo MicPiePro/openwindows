@@ -9,11 +9,8 @@
           "solar_weather": "Weather entity — solar / long horizon (Open-Meteo)",
           "crossvent_temp_sensors": "Temperature sensors — cross-vent core (living, kitchen, bedrooms)",
           "crossvent_humidity_sensors": "Humidity sensors — cross-vent core",
-          "bedroom_temp_sensors": "Temperature sensors — bedrooms (reference while AC runs)",
-          "bedroom_humidity_sensors": "Humidity sensors — bedrooms",
           "bureau_temp_sensor": "Temperature sensor — office",
           "bureau_humidity_sensor": "Humidity sensor — office",
-          "ac_power_sensor": "Power sensor — portable AC",
           "door_sensor": "Door open sensor",
           "orientation": "Main windows orientation"
         }
@@ -32,7 +29,6 @@
           "min_indoor": "Minimum indoor temperature (°C)",
           "humidity_gate_enabled": "Enable humidity gate (dew point)",
           "max_outdoor_dewpoint": "Outdoor dew-point cap — muggy air (°C)",
-          "ac_power_threshold": "AC power threshold (W)",
           "wall_mass": "Wall thermal mass",
           "ventilation": "Ventilation level",
           "update_interval_min": "Update interval (min)"

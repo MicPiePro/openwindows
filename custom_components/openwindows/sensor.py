@@ -56,9 +56,7 @@ class VerdictSensor(OpenWindowsBaseEntity, SensorEntity):
             "reason": data.reason,
             "outdoor_temp": data.outdoor_temp,
             "indoor_ref_temp": data.indoor_ref_temp,
-            "reference_zone": data.reference_zone,
             "humidity_gate_blocking": data.humidity_gate_blocking,
-            "ac_on": data.ac_on,
         }
 
 
