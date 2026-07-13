@@ -1,7 +1,4 @@
 {
   "name": "OpenWindows",
-  "homeassistant": "2024.6.0",
-  "zip_release": true,
-  "filename": "openwindows.zip",
-  "content_in_root": false
+  "homeassistant": "2024.6.0"
 }

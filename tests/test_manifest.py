@@ -23,6 +23,7 @@ def test_hacs_contents():
     data = json.loads((ROOT / "hacs.json").read_text())
     assert data["name"] == "OpenWindows"
     assert data["homeassistant"] == "2024.6.0"
-    assert data["zip_release"] is True
-    assert data["filename"] == "openwindows.zip"
-    assert data["content_in_root"] is False
+    # No zip_release: HACS downloads custom_components/openwindows from the
+    # release tag directly (no prebuilt zip asset to attach).
+    assert "zip_release" not in data
+    assert "filename" not in data
