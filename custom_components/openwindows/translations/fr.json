@@ -31,7 +31,7 @@
           "close_margin": "Marge de fermeture — hystérésis (°C)",
           "min_indoor": "Température intérieure minimale (°C)",
           "humidity_gate_enabled": "Activer le filtre d'humidité (point de rosée)",
-          "dewpoint_margin": "Marge de point de rosée (°C)",
+          "max_outdoor_dewpoint": "Plafond de point de rosée extérieur — air poisseux (°C)",
           "ac_power_threshold": "Seuil de puissance climatiseur (W)",
           "wall_mass": "Inertie des murs",
           "ventilation": "Niveau de ventilation",

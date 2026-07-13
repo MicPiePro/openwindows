@@ -18,9 +18,9 @@ from custom_components.openwindows.const import (
     CONF_COMFORT_TARGET,
     CONF_CROSSVENT_HUM,
     CONF_CROSSVENT_TEMP,
-    CONF_DEWPOINT_MARGIN,
     CONF_DOOR,
     CONF_HUMIDITY_GATE,
+    CONF_MAX_DEWPOINT,
     CONF_MIN_INDOOR,
     CONF_OPEN_MARGIN,
     CONF_ORIENTATION,
@@ -95,7 +95,7 @@ async def test_options_flow_stores_options(hass: HomeAssistant) -> None:
         CONF_CLOSE_MARGIN: 0.5,
         CONF_MIN_INDOOR: 22.0,
         CONF_HUMIDITY_GATE: False,
-        CONF_DEWPOINT_MARGIN: 1.5,
+        CONF_MAX_DEWPOINT: 17.0,
         CONF_AC_THRESHOLD: 120.0,
         CONF_WALL_MASS: "heavy",
         CONF_VENTILATION: "low",
@@ -128,7 +128,7 @@ async def test_options_flow_defaults_shown(hass: HomeAssistant) -> None:
     assert entry.options[CONF_CLOSE_MARGIN] == 0.3
     assert entry.options[CONF_MIN_INDOOR] == 23.0
     assert entry.options[CONF_HUMIDITY_GATE] is True
-    assert entry.options[CONF_DEWPOINT_MARGIN] == 1.0
+    assert entry.options[CONF_MAX_DEWPOINT] == 18.0
     assert entry.options[CONF_AC_THRESHOLD] == 100.0
     assert entry.options[CONF_WALL_MASS] == "medium"
     assert entry.options[CONF_VENTILATION] == "high"

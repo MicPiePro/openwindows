@@ -16,7 +16,7 @@ def test_manifest_contents():
     assert data["after_dependencies"] == ["http", "lovelace", "recorder"]
     assert data["requirements"] == []
     assert data["codeowners"] == ["@MicPiePro"]
-    assert data["version"] == "0.1.0"
+    assert data["version"] == "0.1.1"
 
 
 def test_hacs_contents():

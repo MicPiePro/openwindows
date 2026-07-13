@@ -34,9 +34,9 @@ from .const import (
     CONF_COMFORT_TARGET,
     CONF_CROSSVENT_HUM,
     CONF_CROSSVENT_TEMP,
-    CONF_DEWPOINT_MARGIN,
     CONF_DOOR,
     CONF_HUMIDITY_GATE,
+    CONF_MAX_DEWPOINT,
     CONF_MIN_INDOOR,
     CONF_OPEN_MARGIN,
     CONF_ORIENTATION,
@@ -198,13 +198,13 @@ class OpenWindowsOptionsFlow(OptionsFlow):
                     default=options.get(CONF_HUMIDITY_GATE, True),
                 ): BooleanSelector(),
                 vol.Required(
-                    CONF_DEWPOINT_MARGIN,
-                    default=options.get(CONF_DEWPOINT_MARGIN, 1.0),
+                    CONF_MAX_DEWPOINT,
+                    default=options.get(CONF_MAX_DEWPOINT, 18.0),
                 ): NumberSelector(
                     NumberSelectorConfig(
-                        min=0.0,
-                        max=5.0,
-                        step=0.1,
+                        min=12.0,
+                        max=24.0,
+                        step=0.5,
                         unit_of_measurement="°C",
                         mode=NumberSelectorMode.BOX,
                     )

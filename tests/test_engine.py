@@ -31,7 +31,7 @@ def test_engine_config_defaults():
     assert cfg.close_margin == 0.3
     assert cfg.min_indoor == 23.0
     assert cfg.humidity_gate_enabled is True
-    assert cfg.dewpoint_margin == 1.0
+    assert cfg.max_outdoor_dewpoint == 18.0
 
 
 def test_hour_forecast_optional_fields_default_none():
@@ -105,13 +105,33 @@ def test_decide_close_when_outdoor_warmer_than_indoor():
 
 
 def test_humidity_gate_blocks_open_when_outdoor_muggy():
-    # Same temps as the open case but outdoor 22C/95% (dew 21.16) > indoor
-    # dew 18.44 + margin 1.0 -> gate blocks; verdict falls through to keep_closed.
+    # Same temps as the open case but outdoor 22C/95% (dew 21.16) exceeds the
+    # 18C absolute dew-point cap -> gate blocks; verdict falls to keep_closed.
     verdict, gate = decide_verdict(
         30.0, dew_point(30.0, 50.0), 22.0, dew_point(22.0, 95.0), False, CFG
     )
     assert gate is True
     assert verdict == VERDICT_KEEP_CLOSED
+
+
+def test_gate_uses_absolute_cap_not_indoor_comparison():
+    """Regression for the 'next_open in 5 days' bug.
+
+    The humidity gate must block on an ABSOLUTE outdoor dew-point cap, not on a
+    comparison to the (in a heatwave: warm and dry) indoor dew point. Cool humid
+    night air whose dew point is below the cap must NOT be gated even when the
+    indoor dew point is far lower; genuinely muggy air above the cap is gated.
+    """
+    cfg = EngineConfig()  # max_outdoor_dewpoint default 18.0
+    # Cool night 22C, dew 14.5 (moderately humid); dry indoor 28.7C, dew 13.0.
+    # Old logic gated this (14.5 > 13.0 + 1.0); the cap must NOT (14.5 < 18).
+    verdict, gate = decide_verdict(28.7, 13.0, 22.0, 14.5, False, cfg)
+    assert gate is False
+    assert verdict == VERDICT_OPEN
+    # Oppressively humid 22C, dew 20.0 (> 18 cap) -> gated -> keep_closed.
+    verdict_muggy, gate_muggy = decide_verdict(28.7, 13.0, 22.0, 20.0, False, cfg)
+    assert gate_muggy is True
+    assert verdict_muggy == VERDICT_KEEP_CLOSED
 
 
 def test_ac_on_never_opens():
@@ -221,7 +241,7 @@ def test_find_window_uses_precomputed_forecast_dew_point_for_gate():
             time=NOW + timedelta(hours=h),
             temp=20.0,
             humidity=None,
-            dew_point=25.0,  # 25 > 18.44 + 1 -> gate blocks
+            dew_point=25.0,  # 25 > 18 cap -> gate blocks
         )
         for h in range(6)
     ]

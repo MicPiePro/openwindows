@@ -31,7 +31,7 @@
           "close_margin": "Close margin — hysteresis (°C)",
           "min_indoor": "Minimum indoor temperature (°C)",
           "humidity_gate_enabled": "Enable humidity gate (dew point)",
-          "dewpoint_margin": "Dew-point margin (°C)",
+          "max_outdoor_dewpoint": "Outdoor dew-point cap — muggy air (°C)",
           "ac_power_threshold": "AC power threshold (W)",
           "wall_mass": "Wall thermal mass",
           "ventilation": "Ventilation level",

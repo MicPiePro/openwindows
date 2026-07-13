@@ -21,9 +21,9 @@ from .const import (
     CONF_COMFORT_TARGET,
     CONF_CROSSVENT_HUM,
     CONF_CROSSVENT_TEMP,
-    CONF_DEWPOINT_MARGIN,
     CONF_DOOR,
     CONF_HUMIDITY_GATE,
+    CONF_MAX_DEWPOINT,
     CONF_MIN_INDOOR,
     CONF_OPEN_MARGIN,
     CONF_SOLAR_WEATHER,
@@ -175,7 +175,7 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
             close_margin=float(self._cfg.get(CONF_CLOSE_MARGIN, 0.3)),
             min_indoor=float(self._cfg.get(CONF_MIN_INDOOR, 23.0)),
             humidity_gate_enabled=bool(self._cfg.get(CONF_HUMIDITY_GATE, True)),
-            dewpoint_margin=float(self._cfg.get(CONF_DEWPOINT_MARGIN, 1.0)),
+            max_outdoor_dewpoint=float(self._cfg.get(CONF_MAX_DEWPOINT, 18.0)),
         )
 
         try:

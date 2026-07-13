@@ -53,7 +53,7 @@ class EngineConfig:
     close_margin: float = 0.3
     min_indoor: float = 23.0
     humidity_gate_enabled: bool = True
-    dewpoint_margin: float = 1.0
+    max_outdoor_dewpoint: float = 18.0
 
 
 @dataclass
@@ -103,9 +103,12 @@ def decide_verdict(
 ) -> tuple[str, bool]:
     """Return (verdict, humidity_gate_blocking) for one moment in time.
 
-    Gate blocks when the outdoor air would raise indoor humidity:
-        gate = humidity_gate_enabled and both dew points known and
-               outdoor_dew_point > indoor_dew_point + dewpoint_margin.
+    Gate blocks when the outdoor air is objectively muggy (absolute cap):
+        gate = humidity_gate_enabled and outdoor_dew_point known and
+               outdoor_dew_point > max_outdoor_dewpoint.
+    indoor_dew_point is kept in the signature for compatibility but the gate no
+    longer compares against it: a warm, dry heatwave indoor has an artificially
+    low dew point, which wrongly blocked beneficial cool-but-humid night air.
 
     Rules (in order):
       - indoor_temp unknown            -> (keep_closed, False)
@@ -118,8 +121,7 @@ def decide_verdict(
     gate_blocking = (
         cfg.humidity_gate_enabled
         and outdoor_dew_point is not None
-        and indoor_dew_point is not None
-        and outdoor_dew_point > indoor_dew_point + cfg.dewpoint_margin
+        and outdoor_dew_point > cfg.max_outdoor_dewpoint
     )
 
     if indoor_temp is None:

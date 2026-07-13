@@ -35,8 +35,8 @@ def test_option_keys_and_defaults():
     assert const.DEFAULT_MIN_INDOOR == 23.0
     assert const.CONF_HUMIDITY_GATE == "humidity_gate_enabled"
     assert const.DEFAULT_HUMIDITY_GATE is True
-    assert const.CONF_DEWPOINT_MARGIN == "dewpoint_margin"
-    assert const.DEFAULT_DEWPOINT_MARGIN == 1.0
+    assert const.CONF_MAX_DEWPOINT == "max_outdoor_dewpoint"
+    assert const.DEFAULT_MAX_DEWPOINT == 18.0
     assert const.CONF_AC_THRESHOLD == "ac_power_threshold"
     assert const.DEFAULT_AC_THRESHOLD == 100.0
     assert const.CONF_WALL_MASS == "wall_mass"
