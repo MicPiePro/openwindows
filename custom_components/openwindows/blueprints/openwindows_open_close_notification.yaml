@@ -1,0 +1,93 @@
+blueprint:
+  name: OpenWindows - Notification ouverture/fermeture
+  description: >
+    Envoie une notification en français lorsque le verdict OpenWindows passe à
+    "open" (ouvrir les fenêtres) ou "close" (fermer les fenêtres). La notification
+    rappelle les températures et la prochaine bascule prévue. V1 : texte seul,
+    sans image. Deux boutons d'action : "C'est fait" et "Rappel".
+  domain: automation
+  source_url: https://github.com/MicPiePro/openwindows/blob/main/custom_components/openwindows/blueprints/openwindows_open_close_notification.yaml
+  input:
+    verdict_sensor:
+      name: Capteur verdict
+      description: Le capteur de verdict OpenWindows.
+      default: sensor.openwindows_verdict
+      selector:
+        entity:
+          filter:
+            integration: openwindows
+            domain: sensor
+    next_open_sensor:
+      name: Capteur prochaine ouverture
+      description: Capteur horodaté de la prochaine ouverture conseillée.
+      default: sensor.openwindows_next_open
+      selector:
+        entity:
+          domain: sensor
+    next_close_sensor:
+      name: Capteur prochaine fermeture
+      description: Capteur horodaté de la prochaine fermeture conseillée.
+      default: sensor.openwindows_next_close
+      selector:
+        entity:
+          domain: sensor
+    notify_target:
+      name: Appareil de notification
+      description: L'appareil mobile (application Home Assistant) qui recevra la notification.
+      selector:
+        device:
+          integration: mobile_app
+mode: single
+max_exceeded: silent
+variables:
+  verdict_sensor: !input verdict_sensor
+  next_open_sensor: !input next_open_sensor
+  next_close_sensor: !input next_close_sensor
+trigger:
+  - platform: state
+    entity_id: !input verdict_sensor
+    to: "open"
+    id: open
+  - platform: state
+    entity_id: !input verdict_sensor
+    to: "close"
+    id: close
+condition: []
+action:
+  - variables:
+      is_open: "{{ trigger.id == 'open' }}"
+      outdoor: "{{ state_attr(verdict_sensor, 'outdoor_temp') }}"
+      indoor: "{{ state_attr(verdict_sensor, 'indoor_ref_temp') }}"
+      next_open_txt: >-
+        {% set v = states(next_open_sensor) %}
+        {% if v in ['unknown', 'unavailable', 'none', ''] %}—
+        {% else %}{{ as_timestamp(v) | timestamp_custom('%d/%m %H:%M', true) }}{% endif %}
+      next_close_txt: >-
+        {% set v = states(next_close_sensor) %}
+        {% if v in ['unknown', 'unavailable', 'none', ''] %}—
+        {% else %}{{ as_timestamp(v) | timestamp_custom('%d/%m %H:%M', true) }}{% endif %}
+      titre: >-
+        {{ 'OpenWindows : ouvrez les fenêtres' if is_open else 'OpenWindows : fermez les fenêtres' }}
+      corps: >-
+        {% if is_open %}
+        Il fait plus frais dehors : ouvrez pour rafraîchir le logement.
+        Extérieur {{ outdoor }}°C / intérieur {{ indoor }}°C.
+        Pensez à refermer vers {{ next_close_txt }}.
+        {% else %}
+        Il ne fait plus assez frais dehors : fermez pour garder la fraîcheur.
+        Extérieur {{ outdoor }}°C / intérieur {{ indoor }}°C.
+        Prochaine ouverture conseillée vers {{ next_open_txt }}.
+        {% endif %}
+  - device_id: !input notify_target
+    domain: mobile_app
+    type: notify
+    title: "{{ titre }}"
+    message: "{{ corps }}"
+    data:
+      tag: openwindows_verdict
+      channel: OpenWindows
+      actions:
+        - action: OPENWINDOWS_DONE
+          title: C'est fait
+        - action: OPENWINDOWS_SNOOZE
+          title: Rappel

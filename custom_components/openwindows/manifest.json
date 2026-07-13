@@ -1,0 +1,12 @@
+{
+  "domain": "openwindows",
+  "name": "OpenWindows",
+  "codeowners": ["@MicPiePro"],
+  "config_flow": true,
+  "dependencies": ["weather"],
+  "after_dependencies": ["http", "lovelace", "recorder"],
+  "documentation": "https://github.com/MicPiePro/openwindows",
+  "iot_class": "calculated",
+  "requirements": [],
+  "version": "0.1.0"
+}

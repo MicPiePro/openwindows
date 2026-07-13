@@ -1,0 +1,71 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "OpenWindows setup",
+        "description": "Select the weather entities and the temperature/humidity sensors for your rooms.",
+        "data": {
+          "temp_weather": "Weather entity — temperature (Météo-France)",
+          "solar_weather": "Weather entity — solar / long horizon (Open-Meteo)",
+          "crossvent_temp_sensors": "Temperature sensors — cross-vent core (living, kitchen, bedrooms)",
+          "crossvent_humidity_sensors": "Humidity sensors — cross-vent core",
+          "bedroom_temp_sensors": "Temperature sensors — bedrooms (reference while AC runs)",
+          "bedroom_humidity_sensors": "Humidity sensors — bedrooms",
+          "bureau_temp_sensor": "Temperature sensor — office",
+          "bureau_humidity_sensor": "Humidity sensor — office",
+          "ac_power_sensor": "Power sensor — portable AC",
+          "door_sensor": "Door open sensor",
+          "orientation": "Main windows orientation"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "OpenWindows settings",
+        "description": "Tune the decision thresholds (open / close the windows).",
+        "data": {
+          "comfort_target": "Comfort target temperature (°C)",
+          "open_margin": "Open margin — outdoor below indoor (°C)",
+          "close_margin": "Close margin — hysteresis (°C)",
+          "min_indoor": "Minimum indoor temperature (°C)",
+          "humidity_gate_enabled": "Enable humidity gate (dew point)",
+          "dewpoint_margin": "Dew-point margin (°C)",
+          "ac_power_threshold": "AC power threshold (W)",
+          "wall_mass": "Wall thermal mass",
+          "ventilation": "Ventilation level",
+          "update_interval_min": "Update interval (min)"
+        }
+      }
+    }
+  },
+  "selector": {
+    "orientation": {
+      "options": {
+        "N": "North",
+        "NE": "North-East",
+        "E": "East",
+        "SE": "South-East",
+        "S": "South",
+        "SW": "South-West",
+        "W": "West",
+        "NW": "North-West"
+      }
+    },
+    "wall_mass": {
+      "options": {
+        "light": "Light",
+        "medium": "Medium",
+        "heavy": "Heavy"
+      }
+    },
+    "ventilation": {
+      "options": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High"
+      }
+    }
+  }
+}

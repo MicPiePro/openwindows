@@ -1,0 +1,53 @@
+blueprint:
+  name: OpenWindows - Contrôle ventilateur
+  description: >
+    Allume le ventilateur quand le verdict OpenWindows passe à "open" et l'éteint
+    quand il passe à "close". Pensé pour fan.chambre_dusty mais utilisable avec
+    n'importe quel ventilateur.
+  domain: automation
+  source_url: https://github.com/MicPiePro/openwindows/blob/main/custom_components/openwindows/blueprints/openwindows_fan_control.yaml
+  input:
+    verdict_sensor:
+      name: Capteur verdict
+      description: Le capteur de verdict OpenWindows.
+      default: sensor.openwindows_verdict
+      selector:
+        entity:
+          filter:
+            integration: openwindows
+            domain: sensor
+    fan_entity:
+      name: Ventilateur
+      description: Le ventilateur à piloter.
+      default: fan.chambre_dusty
+      selector:
+        entity:
+          domain: fan
+mode: single
+max_exceeded: silent
+trigger:
+  - platform: state
+    entity_id: !input verdict_sensor
+    to: "open"
+    id: open
+  - platform: state
+    entity_id: !input verdict_sensor
+    to: "close"
+    id: close
+condition: []
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: open
+        sequence:
+          - service: fan.turn_on
+            target:
+              entity_id: !input fan_entity
+      - conditions:
+          - condition: trigger
+            id: close
+        sequence:
+          - service: fan.turn_off
+            target:
+              entity_id: !input fan_entity
