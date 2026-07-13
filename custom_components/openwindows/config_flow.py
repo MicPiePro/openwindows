@@ -24,10 +24,6 @@ from homeassistant.helpers.selector import (
 )
 
 from .const import (
-    CONF_AC_POWER,
-    CONF_AC_THRESHOLD,
-    CONF_BEDROOM_HUM,
-    CONF_BEDROOM_TEMP,
     CONF_BUREAU_HUM,
     CONF_BUREAU_TEMP,
     CONF_CLOSE_MARGIN,
@@ -72,24 +68,11 @@ USER_SCHEMA = vol.Schema(
                 domain="sensor", device_class="humidity", multiple=True
             )
         ),
-        vol.Required(CONF_BEDROOM_TEMP): EntitySelector(
-            EntitySelectorConfig(
-                domain="sensor", device_class="temperature", multiple=True
-            )
-        ),
-        vol.Required(CONF_BEDROOM_HUM): EntitySelector(
-            EntitySelectorConfig(
-                domain="sensor", device_class="humidity", multiple=True
-            )
-        ),
         vol.Required(CONF_BUREAU_TEMP): EntitySelector(
             EntitySelectorConfig(domain="sensor", device_class="temperature")
         ),
         vol.Required(CONF_BUREAU_HUM): EntitySelector(
             EntitySelectorConfig(domain="sensor", device_class="humidity")
-        ),
-        vol.Required(CONF_AC_POWER): EntitySelector(
-            EntitySelectorConfig(domain="sensor", device_class="power")
         ),
         vol.Required(CONF_DOOR): EntitySelector(
             EntitySelectorConfig(domain="binary_sensor")
@@ -206,18 +189,6 @@ class OpenWindowsOptionsFlow(OptionsFlow):
                         max=24.0,
                         step=0.5,
                         unit_of_measurement="°C",
-                        mode=NumberSelectorMode.BOX,
-                    )
-                ),
-                vol.Required(
-                    CONF_AC_THRESHOLD,
-                    default=options.get(CONF_AC_THRESHOLD, 100.0),
-                ): NumberSelector(
-                    NumberSelectorConfig(
-                        min=0.0,
-                        max=3000.0,
-                        step=10.0,
-                        unit_of_measurement="W",
                         mode=NumberSelectorMode.BOX,
                     )
                 ),

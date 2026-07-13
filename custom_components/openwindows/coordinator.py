@@ -11,10 +11,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    CONF_AC_POWER,
-    CONF_AC_THRESHOLD,
-    CONF_BEDROOM_HUM,
-    CONF_BEDROOM_TEMP,
     CONF_BUREAU_HUM,
     CONF_BUREAU_TEMP,
     CONF_CLOSE_MARGIN,
@@ -33,7 +29,7 @@ from .const import (
 )
 from .engine import EngineConfig, HourForecast, Snapshot, run_decision_engine
 from .psychro import dew_point
-from .zones import mean_reading
+from .zones import aggregate_zone
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,14 +62,14 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
             return None
 
     def _read_zone(self, name, temp_ids, hum_ids):
-        """Build a ZoneReading (mean of available sensors) for a zone."""
+        """Build a ZoneReading (max temp / mean humidity) for a zone."""
         if isinstance(temp_ids, str):
             temp_ids = [temp_ids]
         if isinstance(hum_ids, str):
             hum_ids = [hum_ids]
         temps = [self._state_float(eid) for eid in (temp_ids or [])]
         hums = [self._state_float(eid) for eid in (hum_ids or [])]
-        return mean_reading(name, temps, hums)
+        return aggregate_zone(name, temps, hums)
 
     def _parse_forecasts(self, temp_fc: list, solar_fc: list) -> list[HourForecast]:
         """Merge the temp-source and solar-source hourly forecasts into HourForecasts.
@@ -150,20 +146,11 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
             self._cfg.get(CONF_CROSSVENT_TEMP),
             self._cfg.get(CONF_CROSSVENT_HUM),
         )
-        bedrooms = self._read_zone(
-            "bedrooms",
-            self._cfg.get(CONF_BEDROOM_TEMP),
-            self._cfg.get(CONF_BEDROOM_HUM),
-        )
         bureau = self._read_zone(
             "bureau",
             self._cfg.get(CONF_BUREAU_TEMP),
             self._cfg.get(CONF_BUREAU_HUM),
         )
-
-        ac_power = self._state_float(self._cfg.get(CONF_AC_POWER))
-        ac_threshold = float(self._cfg.get(CONF_AC_THRESHOLD, 100.0))
-        ac_on = ac_power is not None and ac_power > ac_threshold
 
         door_entity = self._cfg.get(CONF_DOOR)
         door_state = self.hass.states.get(door_entity) if door_entity else None
@@ -184,9 +171,7 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
                 dt_util.utcnow(),
                 forecasts,
                 crossvent,
-                bedrooms,
                 bureau,
-                ac_on,
                 door_open,
                 cfg,
             )
