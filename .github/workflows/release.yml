@@ -1,0 +1,36 @@
+name: Release
+
+# Auto-create a GitHub Release whenever a version tag is pushed.
+# Since hacs.json has no zip_release, HACS downloads custom_components/openwindows
+# straight from the tag — the Release just needs to exist for HACS to see the
+# new version. To ship a release: bump manifest.json "version", commit, then
+#   git tag vX.Y.Z && git push origin vX.Y.Z
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify manifest.json version matches the tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          manifest="$(python3 -c "import json; print(json.load(open('custom_components/openwindows/manifest.json'))['version'])")"
+          echo "tag=$tag  manifest=$manifest"
+          if [ "$tag" != "$manifest" ]; then
+            echo "::error::Tag v$tag does not match manifest.json version $manifest — bump manifest.json before tagging."
+            exit 1
+          fi
+
+      - name: Create the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
