@@ -15,14 +15,27 @@ from custom_components.openwindows.const import (
     CONF_CROSSVENT_HUM,
     CONF_CROSSVENT_TEMP,
     CONF_DOOR,
+    CONF_HEAT_END_DAYS,
+    CONF_HEAT_END_THRESHOLD,
+    CONF_HEAT_THRESHOLD,
     CONF_HUMIDITY_GATE,
     CONF_MAX_DEWPOINT,
     CONF_MIN_INDOOR,
+    CONF_MORNING_DAYS,
+    CONF_MORNING_ENABLED,
+    CONF_MORNING_ROOMS,
+    CONF_MORNING_TIME,
+    CONF_OFFICE_DAYS,
+    CONF_OFFICE_ENABLED,
+    CONF_OFFICE_ROOMS,
+    CONF_OFFICE_TIME,
     CONF_OPEN_MARGIN,
     CONF_ORIENTATION,
     CONF_UPDATE_INTERVAL,
     CONF_VENTILATION,
     CONF_WALL_MASS,
+    CONF_WARM_SEASON_END,
+    CONF_WARM_SEASON_START,
     CONF_WEATHER,
     DOMAIN,
 )
@@ -42,6 +55,26 @@ USER_INPUT = {
     CONF_BUREAU_HUM: "sensor.bureau_hum",
     CONF_DOOR: "binary_sensor.porte_balcon",
     CONF_ORIENTATION: "SW",
+}
+
+
+MODE_INPUT = {
+    CONF_WARM_SEASON_START: "05-01",
+    CONF_WARM_SEASON_END: "09-30",
+    CONF_HEAT_THRESHOLD: 30.0,
+    CONF_HEAT_END_THRESHOLD: 26.0,
+    CONF_HEAT_END_DAYS: 3,
+}
+
+AIRING_INPUT = {
+    CONF_MORNING_ENABLED: False,
+    CONF_MORNING_TIME: "07:30:00",
+    CONF_MORNING_DAYS: ["sat", "sun"],
+    CONF_MORNING_ROOMS: "Salon",
+    CONF_OFFICE_ENABLED: True,
+    CONF_OFFICE_TIME: "10:00:00",
+    CONF_OFFICE_DAYS: ["mon", "tue"],
+    CONF_OFFICE_ROOMS: "Bureau et chambre",
 }
 
 
@@ -91,13 +124,18 @@ async def test_options_flow_stores_options(hass: HomeAssistant) -> None:
         CONF_UPDATE_INTERVAL: 30,
     }
     result2 = await hass.config_entries.options.async_configure(
-        result["flow_id"], options_input
+        result["flow_id"], {**options_input, **MODE_INPUT}
+    )
+    assert result2["type"] is FlowResultType.FORM
+    assert result2["step_id"] == "airing"
+    result3 = await hass.config_entries.options.async_configure(
+        result["flow_id"], AIRING_INPUT
     )
     await hass.async_block_till_done()
 
-    assert result2["type"] is FlowResultType.CREATE_ENTRY
-    assert result2["data"] == options_input
-    assert entry.options == options_input
+    assert result3["type"] is FlowResultType.CREATE_ENTRY
+    assert result3["data"] == {**options_input, **MODE_INPUT, **AIRING_INPUT}
+    assert entry.options == {**options_input, **MODE_INPUT, **AIRING_INPUT}
 
 
 async def test_options_flow_defaults_shown(hass: HomeAssistant) -> None:
@@ -106,6 +144,10 @@ async def test_options_flow_defaults_shown(hass: HomeAssistant) -> None:
     entry.add_to_hass(hass)
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"], user_input={}
+    )
+    assert result2["step_id"] == "airing"
     result2 = await hass.config_entries.options.async_configure(
         result["flow_id"], user_input={}
     )
@@ -121,3 +163,92 @@ async def test_options_flow_defaults_shown(hass: HomeAssistant) -> None:
     assert entry.options[CONF_WALL_MASS] == "medium"
     assert entry.options[CONF_VENTILATION] == "high"
     assert entry.options[CONF_UPDATE_INTERVAL] == 15
+    assert entry.options[CONF_WARM_SEASON_START] == "04-01"
+    assert entry.options[CONF_WARM_SEASON_END] == "10-31"
+    assert entry.options[CONF_HEAT_THRESHOLD] == 28.0
+    assert entry.options[CONF_HEAT_END_THRESHOLD] == 25.0
+    assert entry.options[CONF_HEAT_END_DAYS] == 2
+    assert entry.options[CONF_MORNING_ENABLED] is True
+    assert entry.options[CONF_MORNING_TIME] == "08:00:00"
+    assert entry.options[CONF_MORNING_DAYS] == [
+        "mon", "tue", "wed", "thu", "fri", "sat", "sun"
+    ]
+    assert entry.options[CONF_MORNING_ROOMS] == "Chambre et salon"
+    assert entry.options[CONF_OFFICE_ENABLED] is True
+    assert entry.options[CONF_OFFICE_TIME] == "09:20:00"
+    assert entry.options[CONF_OFFICE_DAYS] == ["mon", "tue", "wed", "thu", "fri"]
+    assert entry.options[CONF_OFFICE_ROOMS] == "Bureau"
+
+
+async def test_options_two_steps_saves_flat_options(hass: HomeAssistant) -> None:
+    """init then airing: mode fields and slots land flat in entry.options."""
+    entry = MockConfigEntry(domain=DOMAIN, data=USER_INPUT, options={})
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_HEAT_THRESHOLD: 28.0, CONF_HEAT_END_DAYS: 2.0}
+    )
+    assert result["step_id"] == "airing"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {}
+    )
+    await hass.async_block_till_done()
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options[CONF_HEAT_THRESHOLD] == 28.0
+    assert entry.options[CONF_OFFICE_DAYS] == ["mon", "tue", "wed", "thu", "fri"]
+    assert entry.options[CONF_HEAT_END_DAYS] == 2
+    assert isinstance(entry.options[CONF_HEAT_END_DAYS], int)
+
+
+async def test_options_prefill_from_current_options(hass: HomeAssistant) -> None:
+    """The airing step defaults come from the stored options."""
+    entry = MockConfigEntry(
+        domain=DOMAIN, data=USER_INPUT, options={CONF_OFFICE_ROOMS: "Atelier"}
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    await hass.config_entries.options.async_configure(result["flow_id"], {})
+    await hass.async_block_till_done()
+
+    assert entry.options[CONF_OFFICE_ROOMS] == "Atelier"
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [("13-01", "10-31"), ("04-01", "xx"), ("11-01", "04-01"), ("04-01", "04-01")],
+)
+async def test_options_invalid_season(
+    hass: HomeAssistant, start: str, end: str
+) -> None:
+    """A bad or inverted warm season re-shows init with invalid_season."""
+    entry = MockConfigEntry(domain=DOMAIN, data=USER_INPUT, options={})
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_WARM_SEASON_START: start, CONF_WARM_SEASON_END: end},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+    assert result["errors"] == {"base": "invalid_season"}
+
+
+async def test_options_invalid_heat_thresholds(hass: HomeAssistant) -> None:
+    """Heat threshold must be strictly above the heat-end threshold."""
+    entry = MockConfigEntry(domain=DOMAIN, data=USER_INPUT, options={})
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_HEAT_THRESHOLD: 28.0, CONF_HEAT_END_THRESHOLD: 28.0}
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "init"
+    assert result["errors"] == {"base": "invalid_heat_thresholds"}
