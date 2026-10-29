@@ -12,10 +12,10 @@ hysteresis so a heatwave is not abandoned at the first cool reading.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timedelta
 
-from .engine import HourForecast
+from .engine import HourForecast, Snapshot
 
 # Values kept in sync with const.MODE_* / const.VERDICT_INACTIVE (const.py pulls
 # in Home Assistant, so this module deliberately does not import it).
@@ -104,3 +104,29 @@ def decide_auto_mode(
     if now - since >= timedelta(days=cfg.heat_end_days):
         return ModeState(MODE_AIRING, None), "heat_ended"
     return ModeState(MODE_COOLING, since), "heat_ending"
+
+
+def apply_airing_mode(snapshot: Snapshot, previous_verdict: str | None) -> Snapshot:
+    """Silence the engine output in Airing mode.
+
+    The first refresh after leaving an ``open`` verdict publishes a single
+    ``close`` (reason ``mode_change``) so windows opened for cooling are not
+    left forgotten; every other refresh is ``inactive``. Measurements and the
+    forecast series are kept for display.
+    """
+    if previous_verdict == "open":
+        verdict, reason = "close", "mode_change"
+    else:
+        verdict, reason = VERDICT_INACTIVE, "airing_mode"
+    return replace(
+        snapshot,
+        verdict=verdict,
+        reason=reason,
+        next_open=None,
+        next_close=None,
+        degrees_saved=None,
+        zones={
+            name: replace(zone, verdict=VERDICT_INACTIVE)
+            for name, zone in snapshot.zones.items()
+        },
+    )

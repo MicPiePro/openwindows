@@ -4,12 +4,14 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
+from conftest import build_snapshot
 from custom_components.openwindows.engine import HourForecast
 from custom_components.openwindows.mode import (
     MODE_AIRING,
     MODE_COOLING,
     ModeConfig,
     ModeState,
+    apply_airing_mode,
     decide_auto_mode,
     in_warm_season,
     max_within,
@@ -134,3 +136,34 @@ def test_no_forecast_keeps_mode():
     new, reason = decide_auto_mode(now, None, ModeState(), CFG)
     assert new.mode == MODE_AIRING
     assert reason == "no_forecast"
+
+
+def test_apply_airing_mode_inactive():
+    snap = build_snapshot()
+    out = apply_airing_mode(snap, "keep_closed")
+    assert out.verdict == "inactive"
+    assert out.reason == "airing_mode"
+    assert out.next_open is None
+    assert out.next_close is None
+    assert out.degrees_saved is None
+    assert {z.verdict for z in out.zones.values()} == {"inactive"}
+    # Measurements are untouched.
+    assert out.outdoor_temp == snap.outdoor_temp
+    assert out.outdoor_dew_point == snap.outdoor_dew_point
+    assert out.indoor_ref_temp == snap.indoor_ref_temp
+    assert out.forecast_series == snap.forecast_series
+    assert out.zones["crossvent"].indoor_temp == 27.5
+    # The input snapshot is not mutated.
+    assert snap.verdict == "keep_closed"
+    assert snap.zones["bureau"].verdict == "open"
+
+
+def test_apply_airing_mode_close_once_after_open():
+    out = apply_airing_mode(build_snapshot(verdict="open"), "open")
+    assert out.verdict == "close"
+    assert out.reason == "mode_change"
+    assert out.next_open is None
+    assert out.next_close is None
+    assert out.degrees_saved is None
+    assert {z.verdict for z in out.zones.values()} == {"inactive"}
+    assert apply_airing_mode(build_snapshot(), None).verdict == "inactive"

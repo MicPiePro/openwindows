@@ -25,8 +25,11 @@ from .const import (
     CONF_UPDATE_INTERVAL,
     CONF_WEATHER,
     DOMAIN,
+    MODE_AIRING,
 )
 from .engine import EngineConfig, HourForecast, Snapshot, run_decision_engine
+from .mode import apply_airing_mode
+from .mode_manager import ModeManager
 from .psychro import dew_point
 from .zones import aggregate_zone
 
@@ -47,6 +50,7 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
             name=DOMAIN,
             update_interval=timedelta(minutes=interval),
         )
+        self.mode_manager = ModeManager(hass, entry)
 
     def _state_float(self, entity_id: str | None) -> float | None:
         """Return the numeric state of an entity, or None if missing/unavailable."""
@@ -122,13 +126,16 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
         """Fetch data, run the decision engine, and return a Snapshot."""
         weather_entity = self._cfg.get(CONF_WEATHER)
         if not weather_entity:
+            await self.mode_manager.async_update(dt_util.now(), None)
             raise UpdateFailed("No weather entity configured")
 
         fc = await self._async_get_forecast(weather_entity)
+        # The mode manager must see every refresh, including failed ones, so
+        # the season/override logic keeps running without a forecast.
+        forecasts = self._parse_forecasts(fc) if fc else []
+        await self.mode_manager.async_update(dt_util.now(), forecasts or None)
         if not fc:
             raise UpdateFailed(f"No hourly forecast available for {weather_entity}")
-
-        forecasts = self._parse_forecasts(fc)
         if not forecasts:
             raise UpdateFailed("Hourly forecast could not be parsed")
 
@@ -169,6 +176,10 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
         except Exception as err:  # noqa: BLE001
             raise UpdateFailed(f"Decision engine failed: {err}") from err
 
+        if self.mode_manager.mode == MODE_AIRING:
+            return apply_airing_mode(
+                snapshot, self.data.verdict if self.data else None
+            )
         return snapshot
 
     @callback

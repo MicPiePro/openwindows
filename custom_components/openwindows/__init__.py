@@ -15,6 +15,7 @@ __all__ = ["async_setup_entry", "async_unload_entry", "update_listener"]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OpenWindows from a config entry."""
     coordinator = OpenWindowsCoordinator(hass, entry)
+    await coordinator.mode_manager.async_load()
     await coordinator.async_config_entry_first_refresh()
     coordinator.async_setup_forecast_triggers()
 
