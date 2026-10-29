@@ -1,9 +1,15 @@
 """Tests for the OpenWindows DataUpdateCoordinator."""
 from __future__ import annotations
 
-from datetime import timedelta
+from contextlib import contextmanager
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
+from zoneinfo import ZoneInfo
 
+import pytest
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openwindows.const import (
@@ -16,9 +22,51 @@ from custom_components.openwindows.const import (
     CONF_UPDATE_INTERVAL,
     CONF_WEATHER,
     DOMAIN,
+    OVERRIDE_FORCE_AIRING,
+    OVERRIDE_FORCE_COOLING,
+    VERDICT_CLOSE,
+    VERDICT_INACTIVE,
     VERDICT_OPEN,
 )
 from custom_components.openwindows.coordinator import OpenWindowsCoordinator
+from custom_components.openwindows.engine import EngineConfig, run_decision_engine
+
+NOW = datetime(2026, 7, 13, 15, 0, tzinfo=ZoneInfo("Europe/Paris"))
+
+
+@contextmanager
+def _frozen_july():
+    """Pin local and UTC time to 2026-07-13 15:00 Paris (warm season)."""
+    with (
+        patch("custom_components.openwindows.coordinator.dt_util.now", return_value=NOW),
+        patch(
+            "custom_components.openwindows.coordinator.dt_util.utcnow",
+            return_value=NOW.astimezone(dt_util.UTC),
+        ),
+    ):
+        yield
+
+
+def _heat_forecast_response():
+    """Cool now, but a 30 C peak tomorrow: Cooling mode, verdict still `open`."""
+    resp = _forecast_response()
+    resp["weather.home"]["forecast"].append(
+        {
+            "datetime": "2026-07-14T14:00:00+00:00",
+            "temperature": 30.0,
+            "humidity": 40,
+            "cloud_coverage": 0,
+        }
+    )
+    return resp
+
+
+def _hot_indoors(hass) -> None:
+    hass.states.async_set("sensor.salon_temp", "30.0")
+    hass.states.async_set("sensor.salon_hum", "40")
+    hass.states.async_set("sensor.bureau_temp", "28.0")
+    hass.states.async_set("sensor.bureau_hum", "45")
+    hass.states.async_set("binary_sensor.door", "off")
 
 
 def _make_entry(hass, options=None):
@@ -153,7 +201,8 @@ async def test_update_data_verdict_open(hass):
     hass.states.async_set("binary_sensor.door", "off")
 
     coordinator = OpenWindowsCoordinator(hass, entry)
-    with _patch_forecast_service(hass, _forecast_response()):
+    # A 30 C peak in the window keeps Cooling mode (v0.3.0 behaviour).
+    with _frozen_july(), _patch_forecast_service(hass, _heat_forecast_response()):
         await coordinator.async_refresh()
 
     assert coordinator.last_update_success is True
@@ -189,3 +238,95 @@ async def test_setup_forecast_triggers_requests_refresh(hass):
     # a Mock, so we check the real `_on_unload` list it appends to rather than
     # a `.called` attribute that only exists on mocks.)
     assert entry._on_unload is not None and len(entry._on_unload) >= 1
+
+
+async def test_airing_mode_suppresses_verdict(hass):
+    entry = _make_entry(hass)
+    _hot_indoors(hass)
+    coordinator = OpenWindowsCoordinator(hass, entry)
+    # Canned forecast peaks at 20 C: no heat, first boot -> Airing.
+    with _frozen_july(), _patch_forecast_service(hass, _forecast_response()):
+        await coordinator.async_refresh()
+
+    assert coordinator.mode_manager.mode == "airing"
+    assert coordinator.data.verdict == VERDICT_INACTIVE
+    assert coordinator.data.next_open is None
+
+
+async def test_heat_keeps_v030_behaviour(hass):
+    entry = _make_entry(hass)
+    _hot_indoors(hass)
+    coordinator = OpenWindowsCoordinator(hass, entry)
+    with _frozen_july(), _patch_forecast_service(hass, _heat_forecast_response()):
+        await coordinator.async_refresh()
+        expected = run_decision_engine(
+            dt_util.utcnow(),
+            coordinator._parse_forecasts(
+                _heat_forecast_response()["weather.home"]["forecast"]
+            ),
+            coordinator._read_zone(
+                "crossvent", ["sensor.salon_temp"], ["sensor.salon_hum"]
+            ),
+            coordinator._read_zone("bureau", "sensor.bureau_temp", "sensor.bureau_hum"),
+            False,
+            EngineConfig(),
+        )
+
+    assert coordinator.mode_manager.mode == "cooling"
+    assert coordinator.data == expected
+    assert coordinator.data.verdict == VERDICT_OPEN
+
+
+async def test_switch_to_airing_while_open_publishes_close_once(hass):
+    entry = _make_entry(hass)
+    _hot_indoors(hass)
+    coordinator = OpenWindowsCoordinator(hass, entry)
+    with _frozen_july(), _patch_forecast_service(hass, _heat_forecast_response()):
+        await coordinator.async_refresh()
+        assert coordinator.data.verdict == VERDICT_OPEN
+
+        await coordinator.mode_manager.async_set_override(OVERRIDE_FORCE_AIRING, NOW)
+        await coordinator.async_refresh()
+        assert coordinator.data.verdict == VERDICT_CLOSE
+        assert coordinator.data.reason == "mode_change"
+
+        await coordinator.async_refresh()
+        assert coordinator.data.verdict == VERDICT_INACTIVE
+        assert coordinator.data.reason == "airing_mode"
+
+
+async def test_forecast_failure_still_updates_mode_manager(hass):
+    entry = _make_entry(hass)
+    coordinator = OpenWindowsCoordinator(hass, entry)
+    with _frozen_july(), _patch_forecast_service(hass, {}):
+        with pytest.raises(UpdateFailed):
+            await coordinator._async_update_data()
+
+    assert coordinator.mode_manager.reason == "no_forecast"
+
+
+async def test_forecast_service_error_still_updates_mode_manager(hass):
+    """weather.get_forecasts raising (entity unavailable) must not skip the manager."""
+    entry = _make_entry(hass)
+    coordinator = OpenWindowsCoordinator(hass, entry)
+    # An override that expired a day ago must still be cleared.
+    await coordinator.mode_manager.async_set_override(
+        OVERRIDE_FORCE_COOLING, NOW - timedelta(days=2)
+    )
+    assert coordinator.mode_manager.override_option == OVERRIDE_FORCE_COOLING
+
+    with (
+        _frozen_july(),
+        patch.object(
+            type(hass.services),
+            "async_call",
+            AsyncMock(side_effect=HomeAssistantError("no entity matched")),
+        ),
+    ):
+        with pytest.raises(UpdateFailed):
+            await coordinator._async_update_data()
+
+    manager = coordinator.mode_manager
+    assert manager.override_option == "auto"
+    assert manager.reason == "no_forecast"
+    assert manager.last_outdoor_temp is None

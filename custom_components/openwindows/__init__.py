@@ -15,8 +15,14 @@ __all__ = ["async_setup_entry", "async_unload_entry", "update_listener"]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up OpenWindows from a config entry."""
     coordinator = OpenWindowsCoordinator(hass, entry)
-    await coordinator.async_config_entry_first_refresh()
+    await coordinator.mode_manager.async_load()
+    # Not gated on success: the mode, override and reminder entities must work
+    # during a forecast outage; coordinator entities stay unavailable until a
+    # refresh succeeds.
+    await coordinator.async_refresh()
     coordinator.async_setup_forecast_triggers()
+    coordinator.airing_scheduler.async_start()
+    entry.async_on_unload(coordinator.airing_scheduler.async_stop)
 
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
 

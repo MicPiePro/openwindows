@@ -1,0 +1,56 @@
+blueprint:
+  name: OpenWindows - Notification d'aération
+  description: >
+    Envoie une notification en français lorsqu'un rappel d'aération
+    OpenWindows se déclenche (mode Aération : rappel du matin ou du bureau).
+    La notification indique les pièces à aérer, la durée conseillée (3 à 5
+    minutes) et la température extérieure. Un bouton d'action : "C'est fait".
+  domain: automation
+  source_url: https://github.com/MicPiePro/openwindows/blob/main/custom_components/openwindows/blueprints/openwindows_airing_notification.yaml
+  input:
+    airing_event:
+      name: Entité de rappel d'aération
+      description: L'entité événement OpenWindows qui se déclenche à chaque rappel d'aération.
+      default: event.openwindows_airing_reminder
+      selector:
+        entity:
+          filter:
+            integration: openwindows
+            domain: event
+    notify_target:
+      name: Appareil de notification
+      description: L'appareil mobile (application Home Assistant) qui recevra la notification.
+      selector:
+        device:
+          integration: mobile_app
+mode: single
+max_exceeded: silent
+trigger:
+  - platform: state
+    entity_id: !input airing_event
+condition:
+  - condition: template
+    value_template: "{{ trigger.from_state is not none and trigger.from_state.state != 'unavailable' }}"
+  - condition: template
+    value_template: "{{ trigger.to_state is not none and trigger.to_state.state not in ['unavailable', 'unknown'] }}"
+  - condition: template
+    value_template: "{{ trigger.from_state.state != trigger.to_state.state }}"
+action:
+  - variables:
+      rooms: "{{ trigger.to_state.attributes.rooms }}"
+      duration_min: "{{ trigger.to_state.attributes.duration_min }}"
+      outdoor_temp: "{{ trigger.to_state.attributes.outdoor_temp }}"
+      titre: "OpenWindows : aérez {{ rooms | lower }}"
+      corps: >-
+        Ouvrez grand {{ duration_min }} min{% if outdoor_temp is not none %} (il fait {{ outdoor_temp }} °C dehors){% endif %}, puis refermez.
+  - device_id: !input notify_target
+    domain: mobile_app
+    type: notify
+    title: "{{ titre }}"
+    message: "{{ corps }}"
+    data:
+      tag: openwindows_airing
+      channel: OpenWindows
+      actions:
+        - action: OPENWINDOWS_AIRING_DONE
+          title: C'est fait

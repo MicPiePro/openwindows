@@ -97,3 +97,83 @@ def fake_coordinator():
 def fake_entry() -> types.SimpleNamespace:
     """Return a fake config entry exposing only `.entry_id`."""
     return types.SimpleNamespace(entry_id="test_entry")
+
+
+@pytest.fixture
+def forecast_response():
+    """Return a factory for a canned ``weather.get_forecasts`` response."""
+
+    def _make(temp: float = 6.0, hours: int = 48) -> dict:
+        from datetime import timedelta
+
+        from homeassistant.util import dt as dt_util
+
+        start = dt_util.utcnow().replace(minute=0, second=0, microsecond=0)
+        return {
+            "weather.home": {
+                "forecast": [
+                    {
+                        "datetime": (start + timedelta(hours=i)).isoformat(),
+                        "temperature": temp,
+                        "humidity": 80,
+                    }
+                    for i in range(hours)
+                ]
+            }
+        }
+
+    return _make
+
+
+@pytest.fixture
+def loaded_entry(hass, forecast_response):
+    """Return an async factory that sets up a full OpenWindows config entry.
+
+    The factory yields ``(entry, coordinator)``. The weather forecast service is
+    patched only during setup.
+    """
+    from unittest.mock import AsyncMock, patch
+
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+    from custom_components.openwindows.const import (
+        CONF_BUREAU_HUM,
+        CONF_BUREAU_TEMP,
+        CONF_CROSSVENT_HUM,
+        CONF_CROSSVENT_TEMP,
+        CONF_DOOR,
+        CONF_ORIENTATION,
+        CONF_WEATHER,
+        DOMAIN,
+    )
+
+    async def _setup(options: dict | None = None):
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data={
+                CONF_WEATHER: "weather.home",
+                CONF_CROSSVENT_TEMP: ["sensor.salon_temp"],
+                CONF_CROSSVENT_HUM: ["sensor.salon_hum"],
+                CONF_BUREAU_TEMP: "sensor.bureau_temp",
+                CONF_BUREAU_HUM: "sensor.bureau_hum",
+                CONF_DOOR: "binary_sensor.door",
+                CONF_ORIENTATION: "S",
+            },
+            options=options or {},
+        )
+        entry.add_to_hass(hass)
+        hass.states.async_set("sensor.salon_temp", "30.0")
+        hass.states.async_set("sensor.salon_hum", "40")
+        hass.states.async_set("sensor.bureau_temp", "28.0")
+        hass.states.async_set("sensor.bureau_hum", "45")
+        hass.states.async_set("binary_sensor.door", "off")
+        with patch.object(
+            type(hass.services),
+            "async_call",
+            AsyncMock(return_value=forecast_response()),
+        ):
+            assert await hass.config_entries.async_setup(entry.entry_id)
+            await hass.async_block_till_done()
+        return entry, hass.data[DOMAIN][entry.entry_id]
+
+    return _setup

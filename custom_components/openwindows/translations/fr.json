@@ -20,7 +20,7 @@
     "step": {
       "init": {
         "title": "Réglages OpenWindows",
-        "description": "Ajustez les seuils de décision (ouvrir / fermer les fenêtres).",
+        "description": "Ajustez les seuils de décision (ouvrir / fermer les fenêtres) et la bascule entre les modes Rafraîchissement et Aération.",
         "data": {
           "comfort_target": "Température de confort cible (°C)",
           "open_margin": "Marge d'ouverture — extérieur sous l'intérieur (°C)",
@@ -30,9 +30,32 @@
           "max_outdoor_dewpoint": "Plafond de point de rosée extérieur — air poisseux (°C)",
           "wall_mass": "Inertie des murs",
           "ventilation": "Niveau de ventilation",
-          "update_interval_min": "Intervalle de mise à jour (min)"
+          "update_interval_min": "Intervalle de mise à jour (min)",
+          "warm_season_start": "Début de la saison chaude (MM-JJ, ex. 04-01)",
+          "warm_season_end": "Fin de la saison chaude (MM-JJ, ex. 10-31)",
+          "heat_threshold": "Seuil de chaleur — max prévu sur 48 h qui déclenche le Rafraîchissement (°C)",
+          "heat_end_threshold": "Seuil de fin de chaleur — max prévu sous lequel la chaleur se termine (°C)",
+          "heat_end_days": "Jours sous le seuil de fin de chaleur avant de passer en Aération"
+        }
+      },
+      "airing": {
+        "title": "Rappels d'aération",
+        "description": "Rappels envoyés en mode Aération : ouvrez quelques minutes, puis refermez.",
+        "data": {
+          "morning_enabled": "Rappel du matin activé",
+          "morning_time": "Heure du rappel du matin",
+          "morning_days": "Jours du rappel du matin",
+          "morning_rooms": "Pièces du rappel du matin",
+          "office_enabled": "Rappel du bureau activé",
+          "office_time": "Heure du rappel du bureau",
+          "office_days": "Jours du rappel du bureau",
+          "office_rooms": "Pièces du rappel du bureau"
         }
       }
+    },
+    "error": {
+      "invalid_season": "Saison chaude invalide : utilisez des dates MM-JJ, avec le début avant la fin.",
+      "invalid_heat_thresholds": "Le seuil de chaleur doit être supérieur au seuil de fin de chaleur."
     }
   },
   "selector": {
@@ -60,6 +83,75 @@
         "low": "Faible",
         "medium": "Moyenne",
         "high": "Élevée"
+      }
+    },
+    "weekday": {
+      "options": {
+        "mon": "Lundi",
+        "tue": "Mardi",
+        "wed": "Mercredi",
+        "thu": "Jeudi",
+        "fri": "Vendredi",
+        "sat": "Samedi",
+        "sun": "Dimanche"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "mode": {
+        "state": {
+          "cooling": "Rafraîchissement",
+          "airing": "Aération"
+        },
+        "state_attributes": {
+          "reason": {
+            "name": "Raison",
+            "state": {
+              "out_of_season": "Hors saison chaude",
+              "heat_forecast": "Chaleur prévue",
+              "heat_ongoing": "Chaleur en cours",
+              "heat_ending": "Fin de chaleur en cours",
+              "heat_ended": "Chaleur terminée",
+              "no_heat": "Pas de chaleur prévue",
+              "no_forecast": "Aucune prévision disponible",
+              "override": "Forçage manuel"
+            }
+          },
+          "source": {
+            "name": "Source",
+            "state": {
+              "auto": "Automatique",
+              "override": "Forcé"
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "mode_override": {
+        "state": {
+          "auto": "Auto",
+          "force_cooling": "Rafraîchissement forcé",
+          "force_airing": "Aération forcée"
+        }
+      }
+    },
+    "number": {
+      "override_days": {
+        "name": "Jours de forçage"
+      }
+    },
+    "event": {
+      "airing_reminder": {
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "morning": "Matin",
+              "office": "Bureau"
+            }
+          }
+        }
       }
     }
   }

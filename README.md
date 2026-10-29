@@ -30,8 +30,8 @@ bureau) et l'état de la porte de balcon pour produire un **verdict** (`open`,
 `close`, `keep_closed`, `open_soon`), une **prochaine ouverture/fermeture**
 prévue, et une prévision d'intérieur. La référence intérieure globale est la
 température de la pièce la plus chaude parmi les capteurs du cœur traversant.
-Deux blueprints d'automatisation (notification + ventilateur) sont copiés
-automatiquement dans votre configuration au premier démarrage.
+Trois blueprints d'automatisation (notification, ventilateur et aération) sont
+copiés automatiquement dans votre configuration au premier démarrage.
 
 ## Installation via HACS (dépôt personnalisé)
 
@@ -89,7 +89,7 @@ Toutes les entités partagent l'appareil **OpenWindows** et sont préfixées
 
 | Entité | Type | Description | Attributs |
 | --- | --- | --- | --- |
-| `sensor.openwindows_verdict` | sensor | Verdict global : `open`, `close`, `keep_closed` ou `open_soon`. | `reason`, `outdoor_temp`, `indoor_ref_temp`, `humidity_gate_blocking` |
+| `sensor.openwindows_verdict` | sensor | Verdict global : `open`, `close`, `keep_closed`, `open_soon` ou `inactive` (mode Aération). | `reason`, `outdoor_temp`, `indoor_ref_temp`, `humidity_gate_blocking` |
 | `sensor.openwindows_next_open` | sensor (timestamp) | Horodatage de la prochaine ouverture conseillée. | — |
 | `sensor.openwindows_next_close` | sensor (timestamp) | Horodatage de la prochaine fermeture conseillée. | — |
 | `sensor.openwindows_predicted_indoor` | sensor (°C) | Pic d'intérieur prévu sur l'horizon de prévision. | `forecast` : liste `{time_iso, outdoor, indoor_pred, comfort}` |
@@ -104,9 +104,94 @@ Toutes les entités partagent l'appareil **OpenWindows** et sont préfixées
 > maintient la température de référence actuelle (pas de modèle RC — voir
 > Roadmap V2).
 
+## Modes Rafraîchissement / Aération
+
+Depuis la v0.4.0, OpenWindows distingue deux modes saisonniers :
+
+- **Rafraîchissement** : le comportement habituel (verdicts `open`, `close`,
+  `keep_closed`, `open_soon`) pour garder le logement frais pendant les
+  périodes de chaleur.
+- **Aération** : hors chaleur, le conseil d'ouverture/fermeture est coupé
+  (verdict `inactive`) et OpenWindows envoie à la place des **rappels
+  d'aération** courts (3 à 5 minutes, jamais plus) à heures fixes.
+
+En mode Rafraîchissement, le comportement est identique à la v0.3.0. Au
+passage vers l'Aération, si le dernier verdict était `open`, un unique verdict
+`close` (raison `mode_change`) est publié pour ne pas oublier des fenêtres
+ouvertes.
+
+### Règles de bascule
+
+Le mode est choisi automatiquement, avec les valeurs par défaut suivantes
+(toutes réglables dans les options, voir plus bas) :
+
+- **Hors saison chaude** : mode Aération. La saison chaude va par défaut du
+  1er avril au 31 octobre inclus (options `04-01` et `10-31`, au format
+  `MM-JJ` : mois puis jour).
+- **Saison chaude** : passage en Rafraîchissement dès que le maximum prévu sur
+  les 48 prochaines heures atteint le **seuil de chaleur** (28 °C).
+- Le Rafraîchissement continue tant que ce maximum reste au-dessus du **seuil
+  de fin de chaleur** (25 °C). Il repasse en Aération quand le maximum reste
+  sous ce seuil pendant **2 jours** consécutifs (hystérésis).
+- Sans prévision disponible, le mode courant est conservé.
+
+### Forçage manuel
+
+Le mode peut être forcé pour une durée limitée avec
+`select.openwindows_mode_override` (`auto`, `force_cooling`, `force_airing`)
+et `number.openwindows_override_days` (1 à 14 jours, 1 par défaut). Le forçage
+est mémorisé (il survit à un redémarrage) et prend fin tout seul à
+l'échéance ; choisir `auto` le retire immédiatement.
+
+### Nouvelles entités
+
+| Entité | Type | Description | Attributs |
+| --- | --- | --- | --- |
+| `sensor.openwindows_mode` | sensor (enum) | Mode courant : `cooling` ou `airing`. | `source`, `override_until`, `reason`, `max_48h`, `in_warm_season` |
+| `sensor.openwindows_next_airing` | sensor (timestamp) | Prochain rappel d'aération (mode Aération uniquement). | `slot` |
+| `select.openwindows_mode_override` | select | Forçage du mode : `auto`, `force_cooling`, `force_airing`. | — |
+| `number.openwindows_override_days` | number (jours) | Durée du prochain forçage manuel (1 à 14). | — |
+| `event.openwindows_airing_reminder` | event | Se déclenche à chaque rappel d'aération (types `morning`, `office`). | `rooms`, `duration_min`, `outdoor_temp` |
+
+L'attribut `reason` du capteur de mode prend les valeurs `out_of_season`,
+`heat_forecast`, `heat_ongoing`, `heat_ending`, `heat_ended`, `no_heat`,
+`no_forecast` ou `override` (traduites dans l'interface).
+
+### Rappels d'aération
+
+Deux rappels sont proposés, tous deux activés par défaut et configurables
+(heure locale, jours de la semaine, pièces citées dans la notification) :
+
+- **Matin** : 08:00, tous les jours, « Chambre et salon ».
+- **Bureau** : 09:20, du lundi au vendredi, « Bureau ».
+
+La durée conseillée (3, 4 ou 5 minutes) dépend de la température extérieure.
+Les rappels ne sont émis qu'en mode Aération. Un rappel en retard de plus de
+15 minutes (Home Assistant arrêté ou en veille à l'heure prévue) est ignoré
+plutôt qu'envoyé à contretemps.
+
+### Options
+
+**Configurer** ouvre désormais deux étapes. La première reprend les réglages
+existants et ajoute : début et fin de la saison chaude (`MM-JJ`), seuil de
+chaleur (22 à 40 °C), seuil de fin de chaleur (18 à 35 °C) et nombre de jours
+de fin de chaleur (1 à 7). Le seuil de chaleur doit être supérieur au seuil de
+fin de chaleur, et le début de saison antérieur à sa fin. La seconde étape
+règle les rappels du matin et du bureau (activation, heure, jours, pièces).
+
+### Blueprint de notification d'aération
+
+Un troisième blueprint est copié automatiquement avec les deux autres :
+
+- **OpenWindows - Notification d'aération** : notification texte en français
+  à chaque déclenchement de `event.openwindows_airing_reminder`, par exemple
+  « OpenWindows : aérez chambre et salon » / « Ouvrez grand 4 min (il fait
+  6 °C dehors), puis refermez. », avec un bouton d'action **C'est fait**.
+  Si la température extérieure est inconnue, la parenthèse est omise.
+
 ## Blueprints (copiés automatiquement)
 
-Au premier démarrage (et à chaque mise à jour), OpenWindows copie deux
+Au premier démarrage (et à chaque mise à jour), OpenWindows copie trois
 blueprints d'automatisation dans
 `config/blueprints/automation/openwindows/` :
 
@@ -116,6 +201,8 @@ blueprints d'automatisation dans
   **Rappel**.
 - **OpenWindows - Contrôle ventilateur** : allume un ventilateur quand le
   verdict passe à `open`, l'éteint quand il passe à `close`.
+- **OpenWindows - Notification d'aération** : notification en mode Aération
+  (voir la section « Modes Rafraîchissement / Aération »).
 
 Créez vos automatisations depuis **Paramètres > Automatisations et scènes >
 Blueprints**.

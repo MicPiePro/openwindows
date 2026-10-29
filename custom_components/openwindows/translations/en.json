@@ -20,7 +20,7 @@
     "step": {
       "init": {
         "title": "OpenWindows settings",
-        "description": "Tune the decision thresholds (open / close the windows).",
+        "description": "Tune the decision thresholds (open / close the windows) and the Cooling / Airing mode switch.",
         "data": {
           "comfort_target": "Comfort target temperature (°C)",
           "open_margin": "Open margin — outdoor below indoor (°C)",
@@ -30,9 +30,32 @@
           "max_outdoor_dewpoint": "Outdoor dew-point cap — muggy air (°C)",
           "wall_mass": "Wall thermal mass",
           "ventilation": "Ventilation level",
-          "update_interval_min": "Update interval (min)"
+          "update_interval_min": "Update interval (min)",
+          "warm_season_start": "Warm season start (MM-DD, e.g. 04-01)",
+          "warm_season_end": "Warm season end (MM-DD, e.g. 10-31)",
+          "heat_threshold": "Heat threshold — forecast max over 48 h that starts Cooling (°C)",
+          "heat_end_threshold": "Heat-end threshold — forecast max below which the heat is ending (°C)",
+          "heat_end_days": "Days below the heat-end threshold before switching to Airing"
+        }
+      },
+      "airing": {
+        "title": "Airing reminders",
+        "description": "Reminders sent in Airing mode: ventilate for a few minutes, then close.",
+        "data": {
+          "morning_enabled": "Morning reminder enabled",
+          "morning_time": "Morning reminder time",
+          "morning_days": "Morning reminder days",
+          "morning_rooms": "Morning reminder rooms",
+          "office_enabled": "Office reminder enabled",
+          "office_time": "Office reminder time",
+          "office_days": "Office reminder days",
+          "office_rooms": "Office reminder rooms"
         }
       }
+    },
+    "error": {
+      "invalid_season": "Invalid warm season: use MM-DD dates, with the start before the end.",
+      "invalid_heat_thresholds": "The heat threshold must be higher than the heat-end threshold."
     }
   },
   "selector": {
@@ -60,6 +83,75 @@
         "low": "Low",
         "medium": "Medium",
         "high": "High"
+      }
+    },
+    "weekday": {
+      "options": {
+        "mon": "Monday",
+        "tue": "Tuesday",
+        "wed": "Wednesday",
+        "thu": "Thursday",
+        "fri": "Friday",
+        "sat": "Saturday",
+        "sun": "Sunday"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "mode": {
+        "state": {
+          "cooling": "Cooling",
+          "airing": "Airing"
+        },
+        "state_attributes": {
+          "reason": {
+            "name": "Reason",
+            "state": {
+              "out_of_season": "Out of warm season",
+              "heat_forecast": "Heat forecast",
+              "heat_ongoing": "Heat ongoing",
+              "heat_ending": "Heat ending",
+              "heat_ended": "Heat ended",
+              "no_heat": "No heat expected",
+              "no_forecast": "No forecast available",
+              "override": "Manual override"
+            }
+          },
+          "source": {
+            "name": "Source",
+            "state": {
+              "auto": "Automatic",
+              "override": "Forced"
+            }
+          }
+        }
+      }
+    },
+    "select": {
+      "mode_override": {
+        "state": {
+          "auto": "Auto",
+          "force_cooling": "Forced cooling",
+          "force_airing": "Forced airing"
+        }
+      }
+    },
+    "number": {
+      "override_days": {
+        "name": "Override days"
+      }
+    },
+    "event": {
+      "airing_reminder": {
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "morning": "Morning",
+              "office": "Office"
+            }
+          }
+        }
       }
     }
   }
