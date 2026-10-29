@@ -143,6 +143,8 @@ class AiringScheduler:
     @callback
     def async_start(self) -> None:
         """Schedule the next slot and follow mode changes."""
+        if self._unsub_mode is not None:  # idempotent: no duplicate subscription
+            self._unsub_mode()
         self._unsub_mode = self._mode_manager.async_add_listener(self._notify)
         self._schedule(dt_util.now())
 

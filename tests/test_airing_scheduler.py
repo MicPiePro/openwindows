@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, time
+from unittest.mock import AsyncMock, MagicMock, patch
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -11,6 +12,7 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
 )
 
+from custom_components.openwindows import airing_scheduler as airing_scheduler_module
 from custom_components.openwindows.airing_scheduler import (
     AiringScheduler,
     airing_slots_from_options,
@@ -18,6 +20,7 @@ from custom_components.openwindows.airing_scheduler import (
 from custom_components.openwindows.const import (
     CONF_MORNING_ENABLED,
     CONF_OFFICE_DAYS,
+    CONF_OFFICE_ENABLED,
     CONF_OFFICE_TIME,
     DOMAIN,
 )
@@ -209,7 +212,7 @@ async def test_no_enabled_slot_means_no_timer(hass, paris, freezer):
     scheduler = _scheduler(
         hass,
         FakeModeManager(),
-        {"morning_enabled": False, "office_enabled": False},
+        {CONF_MORNING_ENABLED: False, CONF_OFFICE_ENABLED: False},
     )
     scheduler.async_start()
     assert scheduler.next_airing is None
@@ -221,14 +224,84 @@ async def test_stop_cancels_timer(hass, paris, freezer):
     freezer.move_to(_local(2026, 11, 2, 6, 0))
     manager = FakeModeManager()
     scheduler = _scheduler(hass, manager)
-    received = []
-    scheduler.async_add_reminder_listener(lambda key, data: received.append(key))
-    scheduler.async_start()
-    scheduler.async_stop()
+    cancel = MagicMock()
+    with patch(
+        "custom_components.openwindows.airing_scheduler.async_track_point_in_time",
+        return_value=cancel,
+    ) as track:
+        scheduler.async_start()
+        assert track.call_count == 1
+        cancel.assert_not_called()
 
-    await _fire(hass, freezer, _local(2026, 11, 2, 8, 0))
-    assert received == []
+        scheduler.async_stop()
+
+        # The pending timer itself is cancelled (not just ignored when it fires).
+        cancel.assert_called_once_with()
+    assert scheduler._unsub_timer is None
     assert manager._listeners == []  # mode-manager subscription released
+    assert scheduler.next_airing is None
+
+
+async def test_async_start_twice_does_not_leak_mode_listener(hass, paris, freezer):
+    freezer.move_to(_local(2026, 11, 2, 6, 0))
+    manager = FakeModeManager()
+    scheduler = _scheduler(hass, manager)
+    scheduler.async_start()
+    scheduler.async_start()
+    assert len(manager._listeners) == 1
+    scheduler.async_stop()
+    assert manager._listeners == []
+
+
+async def test_reload_leaves_exactly_one_timer(
+    hass, freezer, loaded_entry, forecast_response
+):
+    await hass.config.async_set_time_zone("Europe/Paris")
+    freezer.move_to(_local(2026, 11, 2, 6, 0))
+
+    # Track live timers: +1 when armed, -1 when its cancel is called.
+    live: list[int] = []
+
+    def _tracking(hass_, action, when):
+        real_cancel = real_track(hass_, action, when)
+        token = len(live)
+        live.append(1)
+
+        def _cancel():
+            live[token] = 0
+            real_cancel()
+
+        return _cancel
+
+    real_track = airing_scheduler_module.async_track_point_in_time
+    with patch.object(
+        airing_scheduler_module, "async_track_point_in_time", _tracking
+    ):
+        entry, old = await loaded_entry()
+        assert sum(live) == 1
+
+        with patch.object(
+            type(hass.services),
+            "async_call",
+            AsyncMock(return_value=forecast_response()),
+        ):
+            assert await hass.config_entries.async_reload(entry.entry_id)
+            await hass.async_block_till_done()
+        new = hass.data[DOMAIN][entry.entry_id].airing_scheduler
+
+        assert new is not old.airing_scheduler
+        assert old.airing_scheduler._unsub_timer is None  # previous one stopped
+        assert sum(live) == 1  # exactly one pending timer after the reload
+
+        received = []
+        new.async_add_reminder_listener(lambda key, data: received.append(key))
+        with patch.object(
+            type(hass.services),
+            "async_call",
+            AsyncMock(return_value=forecast_response()),
+        ):
+            await _fire(hass, freezer, _local(2026, 11, 2, 8, 0))
+        assert received == ["morning"]  # one reminder, not two
 
 
 async def test_dst_slot_is_local_time(hass, paris, freezer):
