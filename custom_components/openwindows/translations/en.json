@@ -31,8 +31,8 @@
           "wall_mass": "Wall thermal mass",
           "ventilation": "Ventilation level",
           "update_interval_min": "Update interval (min)",
-          "warm_season_start": "Warm season start (MM-DD)",
-          "warm_season_end": "Warm season end (MM-DD)",
+          "warm_season_start": "Warm season start (MM-DD, e.g. 04-01)",
+          "warm_season_end": "Warm season end (MM-DD, e.g. 10-31)",
           "heat_threshold": "Heat threshold — forecast max over 48 h that starts Cooling (°C)",
           "heat_end_threshold": "Heat-end threshold — forecast max below which the heat is ending (°C)",
           "heat_end_days": "Days below the heat-end threshold before switching to Airing"

@@ -31,8 +31,8 @@
           "wall_mass": "Inertie des murs",
           "ventilation": "Niveau de ventilation",
           "update_interval_min": "Intervalle de mise à jour (min)",
-          "warm_season_start": "Début de la saison chaude (MM-JJ)",
-          "warm_season_end": "Fin de la saison chaude (MM-JJ)",
+          "warm_season_start": "Début de la saison chaude (MM-JJ, ex. 04-01)",
+          "warm_season_end": "Fin de la saison chaude (MM-JJ, ex. 10-31)",
           "heat_threshold": "Seuil de chaleur — max prévu sur 48 h qui déclenche le Rafraîchissement (°C)",
           "heat_end_threshold": "Seuil de fin de chaleur — max prévu sous lequel la chaleur se termine (°C)",
           "heat_end_days": "Jours sous le seuil de fin de chaleur avant de passer en Aération"
