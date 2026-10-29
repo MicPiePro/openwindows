@@ -11,7 +11,7 @@ from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .const import DOMAIN
+from .const import DOMAIN, MODE_AIRING, MODE_COOLING
 from .coordinator import OpenWindowsCoordinator
 from .entity import OpenWindowsBaseEntity, OpenWindowsDeviceEntity
 
@@ -34,6 +34,7 @@ async def async_setup_entry(
             ZoneBureauSensor(coordinator, entry),
             DegreesSavedSensor(coordinator, entry),
             NextAiringSensor(coordinator, entry),
+            ModeSensor(coordinator, entry),
         ]
     )
 
@@ -218,3 +219,37 @@ class NextAiringSensor(OpenWindowsDeviceEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, object]:
         return {"slot": self._scheduler.next_slot_key}
+
+
+class ModeSensor(OpenWindowsDeviceEntity, SensorEntity):
+    """Current mode (cooling or airing) and how it was chosen."""
+
+    _attr_name = "Mode"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = [MODE_COOLING, MODE_AIRING]
+    _attr_translation_key = "mode"
+
+    def __init__(self, coordinator: OpenWindowsCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(entry, "mode")
+        self._manager = coordinator.mode_manager
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(
+            self._manager.async_add_listener(self.async_write_ha_state)
+        )
+
+    @property
+    def native_value(self) -> str:
+        return self._manager.mode
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        until = self._manager.override_until
+        return {
+            "source": self._manager.source,
+            "override_until": until.isoformat() if until else None,
+            "reason": self._manager.reason,
+            "max_48h": self._manager.max_48h,
+            "in_warm_season": self._manager.in_warm_season,
+        }

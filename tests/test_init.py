@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.openwindows import update_listener
@@ -103,10 +104,11 @@ async def test_async_setup_entry_sets_up_coordinator_and_platforms(hass) -> None
     assert isinstance(coordinator, OpenWindowsCoordinator)
     assert coordinator.last_update_success is True
 
-    # All platforms (sensor: 9 entities, binary_sensor: 1, event: 1) forwarded.
+    # All platforms (sensor: 10 entities, binary_sensor: 1, event: 1,
+    # select: 1, number: 1) forwarded.
     registry = er.async_get(hass)
     entries = er.async_entries_for_config_entry(registry, entry.entry_id)
-    assert len(entries) == 11
+    assert len(entries) == 14
 
     # Blueprints copied into the HA config dir.
     dest = Path(hass.config.path("blueprints", "automation", "openwindows"))
@@ -170,3 +172,33 @@ async def test_async_setup_entry_returns_false_like_behavior_on_bad_forecast(
 
     assert result is False
     assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_setup_registers_new_entities(hass, loaded_entry) -> None:
+    """The mode, airing and override entities are all registered."""
+    await loaded_entry()
+    registry = er.async_get(hass)
+    for entity_id in (
+        "sensor.openwindows_mode",
+        "sensor.openwindows_next_airing",
+        "select.openwindows_mode_override",
+        "number.openwindows_override_days",
+        "event.openwindows_airing_reminder",
+    ):
+        assert registry.async_get(entity_id) is not None, entity_id
+
+
+async def test_mode_sensor_available_after_failed_update(hass, loaded_entry) -> None:
+    """The mode sensor is not tied to the coordinator's update success."""
+    _, coordinator = await loaded_entry()
+    with patch.object(
+        coordinator, "_async_update_data", AsyncMock(side_effect=UpdateFailed("boom"))
+    ):
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+
+    assert coordinator.last_update_success is False
+    assert hass.states.get("sensor.openwindows_verdict").state == "unavailable"
+    assert hass.states.get("sensor.openwindows_mode").state != "unavailable"
+    assert hass.states.get("select.openwindows_mode_override").state != "unavailable"
+    assert hass.states.get("number.openwindows_override_days").state != "unavailable"

@@ -130,3 +130,28 @@ async def test_next_airing_sensor_follows_mode(hass, freezer, loaded_entry):
     state = hass.states.get("sensor.openwindows_next_airing")
     assert state.state == "2026-11-02T07:00:00+00:00"
     assert state.attributes["slot"] == "morning"
+
+
+async def test_mode_sensor_states_and_attributes(hass, freezer, loaded_entry):
+    await hass.config.async_set_time_zone("Europe/Paris")
+    freezer.move_to(datetime(2026, 11, 2, 6, 0, tzinfo=ZoneInfo("Europe/Paris")))
+    _, coordinator = await loaded_entry()
+    manager = coordinator.mode_manager
+
+    state = hass.states.get("sensor.openwindows_mode")
+    assert state.state == "airing"
+    assert state.attributes["device_class"] == "enum"
+    assert state.attributes["options"] == ["cooling", "airing"]
+    assert state.attributes["source"] == "auto"
+    assert state.attributes["override_until"] is None
+    assert state.attributes["reason"] == "out_of_season"
+    assert state.attributes["max_48h"] == 6.0
+    assert state.attributes["in_warm_season"] is False
+
+    await manager.async_set_override("force_cooling", dt_util.now())
+    await hass.async_block_till_done()
+    state = hass.states.get("sensor.openwindows_mode")
+    assert state.state == "cooling"
+    assert state.attributes["source"] == "override"
+    assert state.attributes["reason"] == "override"
+    assert state.attributes["override_until"] == manager.override_until.isoformat()
