@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 from zoneinfo import ZoneInfo
 
 import pytest
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -22,6 +23,7 @@ from custom_components.openwindows.const import (
     CONF_WEATHER,
     DOMAIN,
     OVERRIDE_FORCE_AIRING,
+    OVERRIDE_FORCE_COOLING,
     VERDICT_CLOSE,
     VERDICT_INACTIVE,
     VERDICT_OPEN,
@@ -301,3 +303,30 @@ async def test_forecast_failure_still_updates_mode_manager(hass):
             await coordinator._async_update_data()
 
     assert coordinator.mode_manager.reason == "no_forecast"
+
+
+async def test_forecast_service_error_still_updates_mode_manager(hass):
+    """weather.get_forecasts raising (entity unavailable) must not skip the manager."""
+    entry = _make_entry(hass)
+    coordinator = OpenWindowsCoordinator(hass, entry)
+    # An override that expired a day ago must still be cleared.
+    await coordinator.mode_manager.async_set_override(
+        OVERRIDE_FORCE_COOLING, NOW - timedelta(days=2)
+    )
+    assert coordinator.mode_manager.override_option == OVERRIDE_FORCE_COOLING
+
+    with (
+        _frozen_july(),
+        patch.object(
+            type(hass.services),
+            "async_call",
+            AsyncMock(side_effect=HomeAssistantError("no entity matched")),
+        ),
+    ):
+        with pytest.raises(UpdateFailed):
+            await coordinator._async_update_data()
+
+    manager = coordinator.mode_manager
+    assert manager.override_option == "auto"
+    assert manager.reason == "no_forecast"
+    assert manager.last_outdoor_temp is None

@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -112,14 +113,24 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
         return hours
 
     async def _async_get_forecast(self, entity_id: str) -> list:
-        """Call weather.get_forecasts (hourly) for one entity and return its list."""
-        response = await self.hass.services.async_call(
-            "weather",
-            "get_forecasts",
-            {"type": "hourly", "entity_id": entity_id},
-            blocking=True,
-            return_response=True,
-        )
+        """Call weather.get_forecasts (hourly) for one entity and return its list.
+
+        Returns an empty list when the forecast cannot be fetched.
+        """
+        try:
+            response = await self.hass.services.async_call(
+                "weather",
+                "get_forecasts",
+                {"type": "hourly", "entity_id": entity_id},
+                blocking=True,
+                return_response=True,
+            )
+        except HomeAssistantError as err:
+            # Raised when the weather entity is unavailable or missing (provider
+            # down or still loading). Treat it as "no forecast" so the mode
+            # manager still sees the refresh.
+            _LOGGER.debug("Forecast unavailable for %s: %s", entity_id, err)
+            return []
         if not response or entity_id not in response:
             return []
         return response[entity_id].get("forecast", [])

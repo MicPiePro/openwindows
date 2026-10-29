@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -155,23 +156,47 @@ async def test_options_update_triggers_reload_via_update_listener(hass) -> None:
     mock_reload.assert_awaited_once_with(entry.entry_id)
 
 
-async def test_async_setup_entry_returns_false_like_behavior_on_bad_forecast(
-    hass,
-) -> None:
-    """If the first refresh fails, async_config_entry_first_refresh raises
-    ConfigEntryNotReady and the entry is not marked LOADED."""
+async def test_setup_loads_when_forecast_service_raises(hass) -> None:
+    """A forecast outage does not gate setup: the device entities exist."""
     entry = _make_entry(hass)
     _set_sensor_states(hass)
-    empty_response = {
-        "weather.home": {"forecast": []},
-    }
 
-    with _patch_forecast_service(hass, empty_response):
-        result = await hass.config_entries.async_setup(entry.entry_id)
+    with patch.object(
+        type(hass.services),
+        "async_call",
+        AsyncMock(side_effect=HomeAssistantError("no entity matched")),
+    ):
+        assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-    assert result is False
-    assert entry.state is ConfigEntryState.SETUP_RETRY
+    assert entry.state is ConfigEntryState.LOADED
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    assert coordinator.last_update_success is False
+
+    # Coordinator entities are unavailable until a refresh succeeds ...
+    assert hass.states.get("sensor.openwindows_verdict").state == "unavailable"
+    # ... but the mode entities and the scheduler work.
+    mode = hass.states.get("sensor.openwindows_mode")
+    assert mode is not None and mode.state in ("cooling", "airing")
+    assert mode.attributes["reason"] == "no_forecast"
+    assert hass.states.get("select.openwindows_mode_override").state != "unavailable"
+    assert coordinator.mode_manager.mode == "airing"
+    assert coordinator.airing_scheduler.next_airing is not None
+    assert hass.states.get("sensor.openwindows_next_airing").state != "unavailable"
+
+
+async def test_setup_loads_when_forecast_is_empty(hass) -> None:
+    """An empty forecast no longer sends the entry to SETUP_RETRY."""
+    entry = _make_entry(hass)
+    _set_sensor_states(hass)
+
+    with _patch_forecast_service(hass, {"weather.home": {"forecast": []}}):
+        assert await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert hass.states.get("sensor.openwindows_verdict").state == "unavailable"
+    assert hass.states.get("sensor.openwindows_mode").state in ("cooling", "airing")
 
 
 async def test_setup_registers_new_entities(hass, loaded_entry) -> None:
