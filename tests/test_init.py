@@ -103,10 +103,10 @@ async def test_async_setup_entry_sets_up_coordinator_and_platforms(hass) -> None
     assert isinstance(coordinator, OpenWindowsCoordinator)
     assert coordinator.last_update_success is True
 
-    # Both platforms (sensor: 8 entities, binary_sensor: 1 entity) forwarded.
+    # All platforms (sensor: 9 entities, binary_sensor: 1, event: 1) forwarded.
     registry = er.async_get(hass)
     entries = er.async_entries_for_config_entry(registry, entry.entry_id)
-    assert len(entries) == 9
+    assert len(entries) == 11
 
     # Blueprints copied into the HA config dir.
     dest = Path(hass.config.path("blueprints", "automation", "openwindows"))

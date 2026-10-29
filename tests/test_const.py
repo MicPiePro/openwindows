@@ -6,7 +6,7 @@ from custom_components.openwindows import const, mode
 
 def test_core_identifiers():
     assert const.DOMAIN == "openwindows"
-    assert [p.value for p in const.PLATFORMS] == ["sensor", "binary_sensor"]
+    assert [p.value for p in const.PLATFORMS] == ["sensor", "binary_sensor", "event"]
     assert const.DEFAULT_UPDATE_INTERVAL == timedelta(minutes=15)
 
 

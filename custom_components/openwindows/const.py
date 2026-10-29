@@ -6,7 +6,7 @@ from datetime import timedelta
 from homeassistant.const import Platform
 
 DOMAIN = "openwindows"
-PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.EVENT]
 DEFAULT_UPDATE_INTERVAL = timedelta(minutes=15)
 
 # --- Config-entry DATA keys (structural, chosen in ConfigFlow -> entry.data) ---

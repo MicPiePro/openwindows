@@ -10,6 +10,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
+from .airing_scheduler import AiringScheduler
 from .const import (
     CONF_BUREAU_HUM,
     CONF_BUREAU_TEMP,
@@ -51,6 +52,7 @@ class OpenWindowsCoordinator(DataUpdateCoordinator[Snapshot]):
             update_interval=timedelta(minutes=interval),
         )
         self.mode_manager = ModeManager(hass, entry)
+        self.airing_scheduler = AiringScheduler(hass, entry, self.mode_manager)
 
     def _state_float(self, entity_id: str | None) -> float | None:
         """Return the numeric state of an entity, or None if missing/unavailable."""

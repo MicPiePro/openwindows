@@ -13,7 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import OpenWindowsCoordinator
-from .entity import OpenWindowsBaseEntity
+from .entity import OpenWindowsBaseEntity, OpenWindowsDeviceEntity
 
 
 async def async_setup_entry(
@@ -33,6 +33,7 @@ async def async_setup_entry(
             ZoneCrossventSensor(coordinator, entry),
             ZoneBureauSensor(coordinator, entry),
             DegreesSavedSensor(coordinator, entry),
+            NextAiringSensor(coordinator, entry),
         ]
     )
 
@@ -192,3 +193,26 @@ class DegreesSavedSensor(OpenWindowsBaseEntity, SensorEntity):
     @property
     def native_value(self) -> float | None:
         return self.coordinator.data.degrees_saved
+
+
+class NextAiringSensor(OpenWindowsDeviceEntity, SensorEntity):
+    """Timestamp of the next airing reminder (airing mode only)."""
+
+    _attr_name = "Next Airing"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(self, coordinator: OpenWindowsCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(entry, "next_airing")
+        self._scheduler = coordinator.airing_scheduler
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self.async_on_remove(self._scheduler.async_add_listener(self.async_write_ha_state))
+
+    @property
+    def native_value(self):
+        return self._scheduler.next_airing
+
+    @property
+    def extra_state_attributes(self) -> dict[str, object]:
+        return {"slot": self._scheduler.next_slot_key}
