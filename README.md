@@ -186,7 +186,7 @@ Un troisième blueprint est copié automatiquement avec les deux autres :
 - **OpenWindows - Notification d'aération** : notification texte en français
   à chaque déclenchement de `event.openwindows_airing_reminder`, par exemple
   « OpenWindows : aérez chambre et salon » / « Ouvrez grand 4 min (il fait
-  12 °C dehors), puis refermez. », avec un bouton d'action **C'est fait**.
+  6 °C dehors), puis refermez. », avec un bouton d'action **C'est fait**.
   Si la température extérieure est inconnue, la parenthèse est omise.
 
 ## Blueprints (copiés automatiquement)

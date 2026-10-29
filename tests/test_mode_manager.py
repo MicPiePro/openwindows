@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock, patch
 
+from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -184,3 +186,30 @@ async def test_update_without_forecast_keeps_mode(hass):
     assert mgr.reason == "no_forecast"
     assert mgr.max_48h is None
     assert mgr.last_outdoor_temp is None
+
+
+async def test_store_written_only_when_payload_changes(hass):
+    mgr = ModeManager(hass, _entry(hass))
+    with patch.object(Store, "async_save", AsyncMock()) as save:
+        await mgr.async_update(JUL1, _fc(JUL1, 30.0))
+        assert save.await_count == 1
+        # Identical state on the next refresh: nothing to write.
+        await mgr.async_update(JUL1 + timedelta(minutes=15), _fc(JUL1, 30.0))
+        assert save.await_count == 1
+        # A real change (override) is still persisted.
+        await mgr.async_set_override("force_airing", JUL1)
+        assert save.await_count == 2
+        await mgr.async_set_override_days(3)
+        assert save.await_count == 3
+
+
+async def test_store_not_rewritten_after_load_when_unchanged(hass):
+    entry = _entry(hass)
+    a = ModeManager(hass, entry)
+    await a.async_update(JUL1, _fc(JUL1, 30.0))
+
+    b = ModeManager(hass, entry)
+    await b.async_load()
+    with patch.object(Store, "async_save", AsyncMock()) as save:
+        await b.async_update(JUL1 + timedelta(minutes=15), _fc(JUL1, 30.0))
+        assert save.await_count == 0

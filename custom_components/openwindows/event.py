@@ -28,6 +28,7 @@ class AiringReminderEvent(OpenWindowsDeviceEntity, EventEntity):
 
     _attr_name = "Airing Reminder"
     _attr_event_types = ["morning", "office"]
+    _attr_translation_key = "airing_reminder"
 
     def __init__(self, coordinator: OpenWindowsCoordinator, entry: ConfigEntry) -> None:
         super().__init__(entry, "airing_reminder")

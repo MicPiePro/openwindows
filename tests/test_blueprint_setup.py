@@ -55,3 +55,8 @@ def test_airing_blueprint_parses() -> None:
     assert set(blueprint.inputs) == {"airing_event", "notify_target"}
     assert data["trigger"][0]["platform"] == "state"
     assert data["action"][-1]["data"]["tag"] == "openwindows_airing"
+    # Attribute-only changes (rename, icon) must not re-send the last reminder.
+    conditions = [c["value_template"] for c in data["condition"]]
+    assert any(
+        "trigger.from_state.state != trigger.to_state.state" in c for c in conditions
+    )

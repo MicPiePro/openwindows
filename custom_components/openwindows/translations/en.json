@@ -117,6 +117,13 @@
               "no_forecast": "No forecast available",
               "override": "Manual override"
             }
+          },
+          "source": {
+            "name": "Source",
+            "state": {
+              "auto": "Automatic",
+              "override": "Forced"
+            }
           }
         }
       }
@@ -127,6 +134,23 @@
           "auto": "Auto",
           "force_cooling": "Forced cooling",
           "force_airing": "Forced airing"
+        }
+      }
+    },
+    "number": {
+      "override_days": {
+        "name": "Override days"
+      }
+    },
+    "event": {
+      "airing_reminder": {
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "morning": "Morning",
+              "office": "Office"
+            }
+          }
         }
       }
     }

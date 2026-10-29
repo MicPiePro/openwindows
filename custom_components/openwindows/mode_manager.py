@@ -95,6 +95,7 @@ class ModeManager:
         self._max_48h: float | None = None
         self._last_outdoor_temp: float | None = None
         self._in_warm_season = in_warm_season(dt_util.now().date(), self._config())
+        self._last_saved: dict[str, Any] | None = None
         self._listeners: list[Callable[[], None]] = []
 
     # --- configuration ---------------------------------------------------
@@ -174,13 +175,19 @@ class ModeManager:
         }
 
     async def _async_save(self) -> None:
-        await self._store.async_save(self._payload())
+        """Write the Store, skipping the write when nothing changed."""
+        payload = self._payload()
+        if payload == self._last_saved:
+            return
+        await self._store.async_save(payload)
+        self._last_saved = payload
 
     async def async_load(self) -> None:
         """Restore the persisted state; an expired override reverts to auto."""
         data = await self._store.async_load()
         if not data:
             return
+        self._last_saved = data
         self._state = ModeState(
             mode=data.get("auto_mode"),
             heat_end_since=_parse_dt(data.get("heat_end_since")),

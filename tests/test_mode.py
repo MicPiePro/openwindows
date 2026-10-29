@@ -1,4 +1,5 @@
 """Tests for the pure cooling/airing mode rules."""
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -167,3 +168,20 @@ def test_apply_airing_mode_close_once_after_open():
     assert out.degrees_saved is None
     assert {z.verdict for z in out.zones.values()} == {"inactive"}
     assert apply_airing_mode(build_snapshot(), None).verdict == "inactive"
+
+
+def test_apply_airing_mode_neutralises_humidity_gate():
+    zones = build_snapshot().zones
+    snap = build_snapshot(
+        humidity_gate_blocking=True,
+        zones={
+            name: replace(zone, humidity_gate_blocking=True)
+            for name, zone in zones.items()
+        },
+    )
+    for previous in ("keep_closed", "open"):
+        out = apply_airing_mode(snap, previous)
+        assert out.humidity_gate_blocking is False
+        assert {z.humidity_gate_blocking for z in out.zones.values()} == {False}
+    # The input snapshot is not mutated.
+    assert snap.humidity_gate_blocking is True

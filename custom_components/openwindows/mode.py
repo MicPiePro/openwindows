@@ -111,8 +111,9 @@ def apply_airing_mode(snapshot: Snapshot, previous_verdict: str | None) -> Snaps
 
     The first refresh after leaving an ``open`` verdict publishes a single
     ``close`` (reason ``mode_change``) so windows opened for cooling are not
-    left forgotten; every other refresh is ``inactive``. Measurements and the
-    forecast series are kept for display.
+    left forgotten; every other refresh is ``inactive``. No recommendation is
+    made, so the humidity gate is reported as not blocking. Measurements and
+    the forecast series are kept for display.
     """
     if previous_verdict == "open":
         verdict, reason = "close", "mode_change"
@@ -125,8 +126,11 @@ def apply_airing_mode(snapshot: Snapshot, previous_verdict: str | None) -> Snaps
         next_open=None,
         next_close=None,
         degrees_saved=None,
+        humidity_gate_blocking=False,
         zones={
-            name: replace(zone, verdict=VERDICT_INACTIVE)
+            name: replace(
+                zone, verdict=VERDICT_INACTIVE, humidity_gate_blocking=False
+            )
             for name, zone in snapshot.zones.items()
         },
     )

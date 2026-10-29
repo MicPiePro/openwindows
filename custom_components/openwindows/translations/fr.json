@@ -117,6 +117,13 @@
               "no_forecast": "Aucune prévision disponible",
               "override": "Forçage manuel"
             }
+          },
+          "source": {
+            "name": "Source",
+            "state": {
+              "auto": "Automatique",
+              "override": "Forcé"
+            }
           }
         }
       }
@@ -127,6 +134,23 @@
           "auto": "Auto",
           "force_cooling": "Rafraîchissement forcé",
           "force_airing": "Aération forcée"
+        }
+      }
+    },
+    "number": {
+      "override_days": {
+        "name": "Jours de forçage"
+      }
+    },
+    "event": {
+      "airing_reminder": {
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "morning": "Matin",
+              "office": "Bureau"
+            }
+          }
         }
       }
     }
