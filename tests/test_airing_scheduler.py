@@ -174,6 +174,38 @@ async def test_does_not_fire_on_start_and_reschedules_from_fired_slot(
     scheduler.async_stop()
 
 
+async def test_late_fire_is_skipped_and_not_replayed(hass, paris, freezer):
+    freezer.move_to(_local(2026, 11, 2, 6, 0))  # Monday
+    scheduler = _scheduler(hass, FakeModeManager())
+    received = []
+    scheduler.async_add_reminder_listener(lambda key, data: received.append(key))
+    scheduler.async_start()
+    assert scheduler.next_slot_key == "morning"
+
+    # The loop stalled: the 08:00 timer only runs at 11:00 (office 09:20 is also
+    # past by now).
+    await _fire(hass, freezer, _local(2026, 11, 2, 11, 0))
+
+    assert received == []  # stale 08:00 skipped, no burst with the 09:20 office
+    assert scheduler.next_airing == _local(2026, 11, 3, 8, 0)
+    assert scheduler.next_slot_key == "morning"
+    scheduler.async_stop()
+
+
+async def test_slightly_late_fire_still_sends(hass, paris, freezer):
+    freezer.move_to(_local(2026, 11, 2, 6, 0))
+    scheduler = _scheduler(hass, FakeModeManager())
+    received = []
+    scheduler.async_add_reminder_listener(lambda key, data: received.append(key))
+    scheduler.async_start()
+
+    await _fire(hass, freezer, _local(2026, 11, 2, 8, 2))
+
+    assert received == ["morning"]
+    assert scheduler.next_airing == _local(2026, 11, 2, 9, 20)
+    scheduler.async_stop()
+
+
 async def test_next_airing_none_in_cooling_and_set_in_airing(hass, paris, freezer):
     freezer.move_to(_local(2026, 11, 2, 6, 0))
     manager = FakeModeManager("cooling")

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -39,6 +39,9 @@ from .const import (
 from .mode_manager import ModeManager
 
 _LOGGER = logging.getLogger(__name__)
+
+# A reminder firing later than this after its slot is dropped as meaningless.
+STALE_AFTER = timedelta(minutes=15)
 
 
 def _slot_from_options(
@@ -180,7 +183,11 @@ class AiringScheduler:
         if self._next is None:  # stopped between the timer firing and this call
             return
         fired_at, slot = self._next
-        if self._mode_manager.mode == MODE_AIRING:
+        now = dt_util.now()
+        if (
+            self._mode_manager.mode == MODE_AIRING
+            and now - fired_at <= STALE_AFTER
+        ):
             temp = self._mode_manager.last_outdoor_temp
             data = {
                 "rooms": slot.rooms,
@@ -189,6 +196,8 @@ class AiringScheduler:
             }
             for cb in list(self._reminder_listeners):
                 cb(slot.key, data)
-        # Reschedule from the fired slot itself, not from the clock: a timer
-        # firing slightly early must not select the same slot again.
-        self._schedule(fired_at)
+        # Reschedule from the later of the fired slot and the clock. The slot
+        # guards against a timer firing slightly early picking the same slot
+        # again; the clock guards against a stalled loop (host sleep) picking a
+        # slot already in the past and replaying a burst of stale reminders.
+        self._schedule(max(fired_at, now))
