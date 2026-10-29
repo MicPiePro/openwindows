@@ -125,7 +125,9 @@ ouvertes.
 Le mode est choisi automatiquement, avec les valeurs par défaut suivantes
 (toutes réglables dans les options, voir plus bas) :
 
-- **Hors saison chaude** (par défaut du 01-04 au 31-10 inclus) : mode Aération.
+- **Hors saison chaude** : mode Aération. La saison chaude va par défaut du
+  1er avril au 31 octobre inclus (options `04-01` et `10-31`, au format
+  `MM-JJ` : mois puis jour).
 - **Saison chaude** : passage en Rafraîchissement dès que le maximum prévu sur
   les 48 prochaines heures atteint le **seuil de chaleur** (28 °C).
 - Le Rafraîchissement continue tant que ce maximum reste au-dessus du **seuil
@@ -164,7 +166,9 @@ Deux rappels sont proposés, tous deux activés par défaut et configurables
 - **Bureau** : 09:20, du lundi au vendredi, « Bureau ».
 
 La durée conseillée (3, 4 ou 5 minutes) dépend de la température extérieure.
-Les rappels ne sont émis qu'en mode Aération.
+Les rappels ne sont émis qu'en mode Aération. Un rappel en retard de plus de
+15 minutes (Home Assistant arrêté ou en veille à l'heure prévue) est ignoré
+plutôt qu'envoyé à contretemps.
 
 ### Options
 
